@@ -1,0 +1,320 @@
+/* Home.module.css */
+.page {
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  background-attachment: fixed;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: "Segoe UI", "Roboto", "Helvetica Neue", sans-serif;
+  box-sizing: border-box;
+  position: fixed;
+  top: 0;
+  left: 0;
+}
+
+.contentWrapper {
+  width: 100%;
+  max-width: 1200px;
+  height: 100vh;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.header {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-bottom: 2rem;
+  flex-shrink: 0;
+}
+
+.logoGroup {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.logo {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.branding {
+  display: flex;
+  flex-direction: column;
+}
+
+.brandName {
+  font-size: 3.5rem;
+  font-weight: 400;
+  margin: 0;
+  line-height: 1;
+  color: #1e3a8a;
+  letter-spacing: -1px;
+}
+
+.innoPart {
+  font-weight: 300;
+  color: #1e40af;
+}
+
+.apePart {
+  font-weight: 700;
+  color: #0369a1;
+}
+
+.byLine {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.byText {
+  font-size: 1rem;
+  font-weight: 400;
+  color: #4b5563;
+}
+
+.innodataText {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1e40af;
+}
+
+.innodataIcon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.mainContent {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  justify-content: center;
+}
+
+.hero {
+  text-align: center;
+  margin-bottom: 2rem;
+  max-width: 800px;
+  width: 100%;
+}
+
+.tagline {
+  font-size: 2.2rem;
+  font-weight: 500;
+  color: #1e3a8a;
+  margin: 0 0 1.5rem 0;
+  line-height: 1.3;
+}
+
+.description {
+  font-size: 1.2rem;
+  color: #4b5563;
+  line-height: 1.6;
+  margin: 0;
+  font-weight: 400;
+}
+
+.ctaButtons {
+  display: flex;
+  gap: 1rem;
+  margin: 2.5rem 0;
+  flex-shrink: 0;
+}
+
+.primaryButton,
+.secondaryButton {
+  padding: 0.85rem 2.5rem;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  display: inline-block;
+  text-align: center;
+  border: none;
+  cursor: pointer;
+}
+
+.primaryButton {
+  background-color: #0369a1;
+  color: white;
+  box-shadow: 0 4px 6px rgba(2, 132, 199, 0.2);
+}
+
+.primaryButton:hover {
+  background-color: #075985;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 8px rgba(2, 132, 199, 0.3);
+}
+
+.secondaryButton {
+  background-color: white;
+  color: #0369a1;
+  border: 2px solid #0369a1;
+}
+
+.secondaryButton:hover {
+  background-color: #f0f9ff;
+  transform: translateY(-2px);
+}
+
+.features {
+  width: 100%;
+  max-width: 1000px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2rem;
+  margin-top: 3rem;
+}
+
+.featureCard {
+  background: white;
+  padding: 2rem 1.5rem;
+  border-radius: 12px;
+  text-align: center;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  border: 1px solid #e5e7eb;
+}
+
+.featureCard:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+}
+
+.featureIcon {
+  font-size: 2.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.featureCard h3 {
+  color: #1e3a8a;
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.featureCard p {
+  color: #4b5563;
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+@media (max-width: 768px) {
+  .page {
+    height: 100vh;
+    overflow: auto;
+    position: relative;
+  }
+
+  .contentWrapper {
+    padding: 1.5rem;
+    height: auto;
+    min-height: 100vh;
+    justify-content: flex-start;
+    overflow: auto;
+  }
+
+  .logoGroup {
+    flex-direction: column;
+    text-align: center;
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+
+  .branding {
+    align-items: center;
+  }
+
+  .brandName {
+    font-size: 2.5rem;
+  }
+
+  .tagline {
+    font-size: 1.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .description {
+    font-size: 1.1rem;
+  }
+
+  .ctaButtons {
+    flex-direction: column;
+    width: 100%;
+    max-width: 300px;
+    margin: 2rem 0;
+  }
+
+  .primaryButton,
+  .secondaryButton {
+    width: 100%;
+    text-align: center;
+    padding: 0.75rem;
+  }
+
+  .features {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    margin-top: 2rem;
+  }
+
+  .featureCard {
+    margin: 0;
+    padding: 1.5rem;
+  }
+
+  .mainContent {
+    justify-content: flex-start;
+    padding: 1rem 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .contentWrapper {
+    padding: 1rem;
+  }
+
+  .brandName {
+    font-size: 2rem;
+  }
+
+  .tagline {
+    font-size: 1.5rem;
+  }
+
+  .features {
+    margin-top: 1.5rem;
+  }
+
+  .featureCard {
+    padding: 1.25rem;
+  }
+
+  .featureCard h3 {
+    font-size: 1.1rem;
+  }
+
+  .featureCard p {
+    font-size: 0.95rem;
+  }
+}

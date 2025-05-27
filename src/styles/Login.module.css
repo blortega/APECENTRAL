@@ -1,0 +1,318 @@
+/* Login Page Styles */
+
+.pageWrapper {
+  display: flex;
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+  position: fixed;
+  top: 0;
+  left: 0;
+  box-sizing: border-box;
+}
+
+.loginContainer {
+  display: flex;
+  flex-direction: column;
+  width: 50%;
+  padding: 2rem 4rem;
+  background-color: #fff;
+  position: relative;
+  z-index: 1;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.imageContainer {
+  width: 50%;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.bgImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.4));
+  z-index: 1;
+}
+
+.welcomeText {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  text-align: center;
+  z-index: 2;
+  width: 80%;
+}
+
+.welcomeText h2 {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+  margin-top: 0;
+}
+
+.welcomeText p {
+  font-size: 1.2rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.logoSection {
+  display: flex;
+  align-items: center;
+  margin-bottom: 2rem;
+  flex-shrink: 0;
+}
+
+.logo {
+  border-radius: 12px;
+  margin-right: 1rem;
+  flex-shrink: 0;
+}
+
+.companyName {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #333;
+  margin: 0;
+}
+
+.formWrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  max-width: 450px;
+  margin: 0 auto;
+  width: 100%;
+  min-height: 0;
+}
+
+.formTitle {
+  font-size: 2rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 2rem;
+  margin-top: 0;
+  text-align: center;
+}
+
+.loginForm {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.label {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #555;
+}
+
+.input {
+  padding: 0.75rem 1rem;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 1rem;
+  width: 100%;
+  transition: border-color 0.3s;
+  box-sizing: border-box;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #4a6cf7;
+  box-shadow: 0 0 0 2px rgba(74, 108, 247, 0.2);
+}
+
+.passwordInputWrapper {
+  position: relative;
+  width: 100%;
+}
+
+.passwordToggle {
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.passwordToggle:hover {
+  color: #4a6cf7;
+}
+
+.options {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.5rem;
+}
+
+.rememberMe {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: #4a6cf7;
+}
+
+.forgotPassword {
+  color: #4a6cf7;
+  font-size: 0.9rem;
+  text-decoration: none;
+  font-weight: 500;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.forgotPassword:hover {
+  text-decoration: underline;
+}
+
+.submitButton {
+  padding: 0.9rem;
+  background-color: #4a6cf7;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  margin-top: 1rem;
+}
+
+.submitButton:hover {
+  background-color: #3a57d5;
+}
+
+.registerPrompt {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 2rem;
+  color: #666;
+  font-size: 0.95rem;
+}
+
+.registerPrompt p {
+  margin: 0;
+}
+
+.registerLink {
+  color: #4a6cf7;
+  font-weight: 500;
+  text-decoration: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: inherit;
+}
+
+.registerLink:hover {
+  text-decoration: underline;
+}
+
+/* Responsive styles */
+@media (max-width: 1024px) {
+  .loginContainer {
+    padding: 2rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .pageWrapper {
+    flex-direction: column-reverse;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .loginContainer,
+  .imageContainer {
+    width: 100%;
+  }
+
+  .loginContainer {
+    height: calc(100vh - 250px);
+    overflow-y: auto;
+  }
+
+  .imageContainer {
+    height: 250px;
+    flex-shrink: 0;
+  }
+
+  .formWrapper {
+    padding: 1rem 0;
+    justify-content: flex-start;
+  }
+
+  .welcomeText h2 {
+    font-size: 2rem;
+  }
+
+  .welcomeText p {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .loginContainer {
+    padding: 1.5rem;
+    height: calc(100vh - 200px);
+  }
+
+  .imageContainer {
+    height: 200px;
+  }
+
+  .options {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .formTitle {
+    font-size: 1.75rem;
+  }
+
+  .welcomeText h2 {
+    font-size: 1.5rem;
+  }
+
+  .welcomeText p {
+    font-size: 0.9rem;
+  }
+}

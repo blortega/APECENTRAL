@@ -1,0 +1,411 @@
+/* Register Page Styles */
+
+.pageWrapper {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+}
+
+.registerContainer {
+  display: flex;
+  flex-direction: column;
+  width: 50%;
+  padding: 2rem 4rem;
+  background-color: #fff;
+  position: relative;
+  z-index: 1;
+}
+
+.imageContainer {
+  width: 50%;
+  position: relative;
+  overflow: hidden;
+}
+
+.bgImage {
+  object-position: center;
+}
+
+.overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.4));
+  z-index: 1;
+}
+
+/* Employee illustration styles */
+.employeeIllustration {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  width: 80%;
+  max-width: 400px;
+  display: flex;
+  justify-content: center;
+}
+
+.employeeImage {
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.25));
+}
+
+.welcomeText {
+  position: absolute;
+  bottom: 10%;
+  left: 50%;
+  transform: translateX(-50%);
+  color: white;
+  text-align: center;
+  z-index: 2;
+  width: 80%;
+}
+
+.welcomeText h2 {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+.welcomeText p {
+  font-size: 1.2rem;
+  line-height: 1.6;
+}
+
+.logoSection {
+  display: flex;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.logo {
+  border-radius: 12px;
+  margin-right: 1rem;
+}
+
+.companyName {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #333;
+}
+
+.formWrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  max-width: 550px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.formTitle {
+  font-size: 2rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+/* Progress Indicator */
+.progressIndicator {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  position: relative;
+  width: 100%;
+}
+
+.progressStep {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 2;
+}
+
+.stepNumber {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #e0e0e0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  transition: all 0.3s ease;
+}
+
+.stepLabel {
+  font-size: 0.85rem;
+  color: #666;
+  font-weight: 500;
+}
+
+.progressStep.active .stepNumber {
+  background-color: #4a6cf7;
+  color: white;
+}
+
+.progressStep.active .stepLabel {
+  color: #333;
+  font-weight: 600;
+}
+
+.progressLine {
+  flex: 1;
+  height: 3px;
+  background-color: #e0e0e0;
+  z-index: 1;
+}
+
+/* Form Styles */
+.registerForm {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.formSection {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.sectionTitle {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.5rem;
+}
+
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.inputRow {
+  display: flex;
+  gap: 1rem;
+  width: 100%;
+}
+
+.inputRow .inputGroup {
+  flex: 1;
+}
+
+.label {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #555;
+}
+
+.input,
+.select {
+  padding: 0.75rem 1rem;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 1rem;
+  width: 100%;
+  transition: border-color 0.3s;
+}
+
+.input:focus,
+.select:focus {
+  outline: none;
+  border-color: #4a6cf7;
+  box-shadow: 0 0 0 2px rgba(74, 108, 247, 0.2);
+}
+
+.passwordInputWrapper {
+  position: relative;
+  width: 100%;
+}
+
+.passwordToggle {
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.passwordToggle:hover {
+  color: #4a6cf7;
+}
+
+/* Form Buttons */
+.formButtons {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1rem;
+  gap: 1rem;
+}
+
+.nextButton,
+.submitButton {
+  padding: 0.9rem 1.5rem;
+  background-color: #4a6cf7;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  flex-grow: 1;
+}
+
+.nextButton:hover,
+.submitButton:hover {
+  background-color: #3a57d5;
+}
+
+.backButton {
+  padding: 0.9rem 1.5rem;
+  background-color: transparent;
+  color: #666;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  flex-grow: 1;
+}
+
+.backButton:hover {
+  background-color: #f5f5f5;
+  color: #333;
+}
+
+.loginPrompt {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 2rem;
+  color: #666;
+  font-size: 0.95rem;
+}
+
+.loginLink {
+  color: #4a6cf7;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.loginLink:hover {
+  text-decoration: underline;
+}
+
+/* Responsive styles */
+@media (max-width: 1024px) {
+  .registerContainer {
+    padding: 2rem;
+  }
+
+  .formWrapper {
+    max-width: 500px;
+  }
+
+  .employeeIllustration {
+    max-width: 340px;
+  }
+}
+
+@media (max-width: 768px) {
+  .pageWrapper {
+    flex-direction: column-reverse;
+  }
+
+  .registerContainer,
+  .imageContainer {
+    width: 100%;
+  }
+
+  .imageContainer {
+    height: 350px;
+  }
+
+  .employeeIllustration {
+    top: 45%;
+    max-width: 280px;
+  }
+
+  .welcomeText {
+    bottom: 15%;
+  }
+
+  .welcomeText h2 {
+    font-size: 2rem;
+  }
+
+  .formWrapper {
+    padding: 2rem 0;
+  }
+
+  .stepLabel {
+    display: none;
+  }
+}
+
+@media (max-width: 576px) {
+  .registerContainer {
+    padding: 1.5rem;
+  }
+
+  .inputRow {
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .formTitle {
+    font-size: 1.75rem;
+  }
+
+  .progressStep {
+    transform: scale(0.9);
+  }
+
+  .imageContainer {
+    height: 300px;
+  }
+
+  .employeeIllustration {
+    max-width: 220px;
+  }
+
+  .welcomeText h2 {
+    font-size: 1.8rem;
+  }
+
+  .welcomeText p {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .formButtons {
+    flex-direction: column;
+  }
+
+  .backButton,
+  .nextButton,
+  .submitButton {
+    width: 100%;
+  }
+}
