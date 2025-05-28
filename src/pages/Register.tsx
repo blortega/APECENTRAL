@@ -530,7 +530,6 @@ const Register: React.FC = () => {
             </div>
 
             <div className={styles.illustrationImage}>
-              {/* You can replace this with an actual medical illustration */}
               <div className={styles.placeholderIllustration}>
                 <div className={styles.medicalIcon}>⚕️</div>
                 <div className={styles.decorativeElements}>
