@@ -1,169 +1,144 @@
-import { useState } from "react";
-import { assets } from "@/components/assets";
+import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import styles from "@/styles/Login.module.css";
+import { assets } from "@/components/assets";
 
-interface FormData {
-  username: string;
+interface LoginFormData {
+  email: string;
   password: string;
-  rememberMe: boolean;
 }
 
-export default function LoginPage() {
-  const [formData, setFormData] = useState<FormData>({
-    username: "",
+const Login: React.FC = () => {
+  const [formData, setFormData] = useState<LoginFormData>({
+    email: "",
     password: "",
-    rememberMe: false,
   });
 
-  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target;
-    setFormData({
-      ...formData,
-      [name]: type === "checkbox" ? checked : value,
-    });
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (
+    e: React.FormEvent<HTMLFormElement>
+  ): Promise<void> => {
     e.preventDefault();
-    try {
-      // Authentication logic would go here
-      console.log("Login attempt with:", formData.username);
-      // Implement authentication with Firebase or your preferred auth provider
-      alert("Login successful!");
-    } catch (error) {
-      console.error("Login failed: ", error);
-      alert("Login failed. Please check your credentials.");
-    }
-  };
+    setIsLoading(true);
 
-  const togglePasswordVisibility = () => {
-    setShowPassword(!showPassword);
-  };
+    // TODO: Implement actual login logic here
+    console.log("Login attempt:", formData);
 
-  const handleForgotPassword = () => {
-    // Handle forgot password navigation
-    // In a SPA, you might use React Router: navigate('/forgot-password')
-    console.log("Navigate to forgot password");
-  };
-
-  const handleRegister = () => {
-    // Handle registration navigation
-    // In a SPA, you might use React Router: navigate('/register')
-    console.log("Navigate to register");
+    // Simulate API call
+    setTimeout(() => {
+      setIsLoading(false);
+    }, 1000);
   };
 
   return (
-    <div className={styles.pageWrapper}>
-      <div className={styles.loginContainer}>
-        <div className={styles.logoSection}>
-          <img
-            src={assets.innoAPE}
-            alt="Company Logo"
-            width={100}
-            height={100}
-            className={styles.logo}
-          />
-          <h1 className={styles.companyName}>InnoAPE</h1>
-        </div>
-
-        <div className={styles.formWrapper}>
-          <h2 className={styles.formTitle}>Employee Login</h2>
-
-          <form onSubmit={handleSubmit} className={styles.loginForm}>
-            <div className={styles.inputGroup}>
-              <label htmlFor="username" className={styles.label}>
-                Username / Employee ID
-              </label>
-              <input
-                id="username"
-                name="username"
-                type="text"
-                placeholder="Enter your username or ID"
-                value={formData.username}
-                onChange={handleChange}
-                className={styles.input}
-                required
-              />
-            </div>
-
-            <div className={styles.inputGroup}>
-              <label htmlFor="password" className={styles.label}>
-                Password
-              </label>
-              <div className={styles.passwordInputWrapper}>
-                <input
-                  id="password"
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Enter your password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  className={styles.input}
-                  required
+    <div className={styles.page}>
+      <div className={styles.contentWrapper}>
+        <div className={styles.header}>
+          <div className={styles.logoGroup}>
+            <img
+              src={assets.innoAPE}
+              alt="HealthTrack logo"
+              className={styles.logo}
+            />
+            <div className={styles.branding}>
+              <h1 className={styles.brandName}>
+                <span className={styles.innoPart}>APE</span>
+                <span className={styles.apePart}>Central</span>
+              </h1>
+              <div className={styles.byLine}>
+                <span className={styles.byText}>Your</span>
+                <img
+                  src={assets.innodataIcon}
+                  alt="Medical Records"
+                  className={styles.innodataIcon}
                 />
-                <button
-                  type="button"
-                  onClick={togglePasswordVisibility}
-                  className={styles.passwordToggle}
-                >
-                  {showPassword ? "Hide" : "Show"}
-                </button>
+                <span className={styles.innodataText}>
+                  Annual Physical Records
+                </span>
               </div>
             </div>
-
-            <div className={styles.options}>
-              <div className={styles.rememberMe}>
-                <input
-                  type="checkbox"
-                  id="rememberMe"
-                  name="rememberMe"
-                  checked={formData.rememberMe}
-                  onChange={handleChange}
-                  className={styles.checkbox}
-                />
-                <label htmlFor="rememberMe">Remember me</label>
-              </div>
-              <button
-                type="button"
-                onClick={handleForgotPassword}
-                className={styles.forgotPassword}
-              >
-                Forgot Password?
-              </button>
-            </div>
-
-            <button type="submit" className={styles.submitButton}>
-              Login
-            </button>
-          </form>
-
-          <div className={styles.registerPrompt}>
-            <p>Don't have an account?</p>
-            <button
-              type="button"
-              onClick={handleRegister}
-              className={styles.registerLink}
-            >
-              Register here
-            </button>
           </div>
         </div>
-      </div>
 
-      <div className={styles.imageContainer}>
-        <img
-          src={assets.innoAPEbg}
-          alt="Login background"
-          className={styles.bgImage}
-        />
-        <div className={styles.overlay}></div>
-        <div className={styles.welcomeText}>
-          <h2>Welcome Back!</h2>
-          <p>Log in to access your employee dashboard and resources.</p>
-        </div>
+        <main className={styles.mainContent}>
+          <section className={styles.hero}>
+            <h2 className={styles.tagline}>Welcome Back</h2>
+            <p className={styles.description}>
+              Access your secure health records and annual physical exam
+              history.
+            </p>
+          </section>
+
+          <div className={styles.loginForm}>
+            <form onSubmit={handleSubmit} className={styles.form}>
+              <div className={styles.inputGroup}>
+                <label htmlFor="email" className={styles.label}>
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  required
+                  className={styles.input}
+                  placeholder="your.email@example.com"
+                  autoComplete="email"
+                />
+              </div>
+
+              <div className={styles.inputGroup}>
+                <label htmlFor="password" className={styles.label}>
+                  Password
+                </label>
+                <input
+                  type="password"
+                  id="password"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  required
+                  className={styles.input}
+                  placeholder="Enter your password"
+                  autoComplete="current-password"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                className={styles.primaryButton}
+              >
+                {isLoading ? "Signing In..." : "Sign In"}
+              </button>
+            </form>
+
+            <div className={styles.loginLinks}>
+              <Link to="/forgot-password" className={styles.forgotLink}>
+                Forgot your password?
+              </Link>
+            </div>
+          </div>
+
+          <div className={styles.ctaButtons}>
+            <Link to="/" className={styles.secondaryButton}>
+              Back to Home
+            </Link>
+          </div>
+        </main>
       </div>
     </div>
   );
-}
+};
+
+export default Login;

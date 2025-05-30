@@ -1,0 +1,322 @@
+/* Main Sidebar Styles */
+.sidebar {
+  width: 280px;
+  height: 100vh;
+  background: #ffffff;
+  border-right: 1px solid #e2e8f0;
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  transition: width 0.3s ease;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+}
+
+.sidebar.collapsed {
+  width: 80px;
+}
+
+/* Header Section */
+.sidebarHeader {
+  padding: 1.5rem 1rem 1rem;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.logoSection {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.logo {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+}
+
+.branding {
+  display: flex;
+  flex-direction: column;
+}
+
+.brandName {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0;
+  color: #1e40af;
+  line-height: 1.2;
+}
+
+.brandSubtitle {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin: 0;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+.toggleButton {
+  background: transparent;
+  color: #64748b;
+  border: none;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+  border-radius: 6px;
+}
+
+.toggleButton:hover {
+  background: #f1f5f9;
+}
+
+/* Content Area */
+.sidebarContent {
+  flex: 1;
+  padding: 0 1rem;
+  overflow-y: auto;
+}
+
+.sectionTitle {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #64748b;
+  margin: 1rem 0 0.25rem;
+  font-weight: 600;
+}
+
+.sectionDescription {
+  font-size: 0.875rem;
+  color: #94a3b8;
+  margin: 0 0 1rem;
+}
+
+/* Navigation */
+.menuList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.menuItem {
+  margin: 0.25rem 0;
+}
+
+.menuLink {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem;
+  color: #334155;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  border-radius: 8px;
+  gap: 0.75rem;
+}
+
+.menuLink:hover {
+  background-color: #f1f5f9;
+}
+
+.menuLink.active {
+  background-color: #e0e7ff;
+  color: #1e40af;
+  font-weight: 500;
+}
+
+.menuIcon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.menuContent {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.menuLabel {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: inherit;
+}
+
+.menuDescription {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.menuLink.active .menuDescription {
+  color: #1e40af;
+}
+
+/* Health Metrics */
+.healthMetrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin: 1.5rem 0;
+  padding: 1rem 0;
+  border-top: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.metricItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.metricValue {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1e40af;
+}
+
+.metricLabel {
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #64748b;
+  margin-top: 0.25rem;
+}
+
+/* Footer Section */
+.sidebarFooter {
+  padding: 1rem;
+  background: #f8fafc;
+  flex-shrink: 0;
+}
+
+.userSection {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.userAvatar {
+  width: 36px;
+  height: 36px;
+  background: #1e40af;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.userInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.userName {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.userEmail {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.footerText {
+  font-size: 0.75rem;
+  color: #64748b;
+  line-height: 1.4;
+  margin: 0.5rem 0 1rem;
+}
+
+.logoutButton {
+  display: flex;
+  align-self: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: transparent;
+  color: #64748b;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  width: 60%;
+}
+
+.logoutButton:hover {
+  background: #f1f5f9;
+  color: #dc2626;
+}
+
+.logoutButton.logoutCollapsed {
+  align-self: center;
+  padding: 0.5rem;
+}
+
+.logoutIcon {
+  font-size: 1.2rem;
+}
+
+/* Collapsed State */
+.sidebar.collapsed .menuLink {
+  justify-content: center;
+  padding: 0.75rem;
+}
+
+.sidebar.collapsed .menuContent {
+  display: none;
+}
+
+.sidebar.collapsed .userInfo {
+  display: none;
+}
+
+.sidebar.collapsed .footerText {
+  display: none;
+}
+
+.sidebar.collapsed .sectionTitle,
+.sidebar.collapsed .sectionDescription {
+  display: none;
+}
+
+.sidebar.collapsed .healthMetrics {
+  display: none;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 100%;
+    height: auto;
+    position: relative;
+    border-right: none;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .sidebar.collapsed {
+    width: 100%;
+  }
+
+  .sidebarHeader {
+    padding: 1rem;
+  }
+
+  .toggleButton {
+    display: none;
+  }
+}
