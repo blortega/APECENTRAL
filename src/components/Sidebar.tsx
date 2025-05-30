@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import styles from "@/styles/Sidebar.module.css";
 import { assets } from "@/components/assets";
@@ -10,10 +10,16 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
   const location = useLocation();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(!isOpen);
+
+  // Sync internal state with external prop
+  useEffect(() => {
+    setIsCollapsed(!isOpen);
+  }, [isOpen]);
 
   const handleToggleCollapse = () => {
-    setIsCollapsed(!isCollapsed);
+    const newCollapsedState = !isCollapsed;
+    setIsCollapsed(newCollapsedState);
     if (onToggle) {
       onToggle();
     }
