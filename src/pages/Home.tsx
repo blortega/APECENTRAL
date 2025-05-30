@@ -51,6 +51,9 @@ export default function Home() {
             <Link to="/login" className={styles.secondaryButton}>
               Patient Login
             </Link>
+            <Link to="/xray" className={styles.secondaryButton}>
+              X-Ray Viewer
+            </Link>
           </div>
 
           <section className={styles.features}>
