@@ -5,6 +5,7 @@ import Register from "@/pages/Register";
 import ForgotPassword from "@/pages/Forgot-Password";
 import XRay from "@/pages/XRay";
 
+
 function App() {
   return (
     <Routes>
@@ -13,6 +14,7 @@ function App() {
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/xray" element={<XRay />} />
+      
     </Routes>
   );
 }

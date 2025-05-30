@@ -10,6 +10,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/firebaseConfig";
 import styles from "@/styles/XRay.module.css";
+import Sidebar from "@/components/Sidebar";
 
 interface XRayRecord {
   id?: string;
@@ -28,6 +29,7 @@ interface XRayRecord {
 }
 
 const XRay: React.FC = () => {
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [records, setRecords] = useState<XRayRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState("");
@@ -35,6 +37,11 @@ const XRay: React.FC = () => {
   const [selectedRecord, setSelectedRecord] = useState<XRayRecord | null>(null);
   const [showModal, setShowModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+
+  const handleSidebarToggle = () => {
+    setIsSidebarCollapsed(!isSidebarCollapsed);
+  };
 
   // Extract text from PDF using PDF.js (you'll need to install: npm install pdfjs-dist)
   const extractPdfText = async (file: File): Promise<string> => {
@@ -157,80 +164,64 @@ const XRay: React.FC = () => {
   };
 
   // Handle file upload
-  const handleFileUpload = async (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const files = event.target.files;
-    if (!files) return;
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const files = event.target.files;
+  if (!files) return;
 
-    setLoading(true);
-    setUploadProgress("Starting upload...");
+  setLoading(true);
+  setUploadProgress("Starting upload...");
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+
+    if (file.type !== "application/pdf") {
+      alert(`File ${file.name} is not a PDF file`);
+      continue;
+    }
+
+    setUploadProgress(`Processing ${file.name}... (${i + 1}/${files.length})`);
+
+    const formData = new FormData();
+    formData.append("file", file);
 
     try {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
+      const res = await fetch("http://localhost:8000/extract-xray", {
+        method: "POST",
+        body: formData,
+      });
 
-        // Check file type
-        if (file.type !== "application/pdf") {
-          alert(`File ${file.name} is not a PDF file`);
-          continue;
-        }
+      const data = await res.json();
 
-        setUploadProgress(
-          `Processing ${file.name}... (${i + 1}/${files.length})`
-        );
-
-        // Extract text from PDF
-        const extractedText = await extractPdfText(file);
-
-        if (!extractedText.trim()) {
-          console.error(`No text extracted from ${file.name}`);
-          setUploadProgress(`Failed to extract text from ${file.name}`);
-          continue;
-        }
-
-        // Parse the extracted text
-        const xrayData = parseXRayData(extractedText, file.name);
-
-        if (xrayData) {
-          // Check if record already exists
-          const existingQuery = query(
-            collection(db, "xrayRecords"),
-            where("uniqueId", "==", xrayData.uniqueId)
-          );
-          const existingDocs = await getDocs(existingQuery);
-
-          if (!existingDocs.empty) {
-            console.log(`Record for ${xrayData.patientName} already exists`);
-            setUploadProgress(
-              `Record for ${xrayData.patientName} already exists`
-            );
-            continue;
-          }
-
-          // Save to Firestore
-          await addDoc(collection(db, "xrayRecords"), xrayData);
-          setUploadProgress(`Saved ${xrayData.patientName}`);
-        } else {
-          setUploadProgress(`Failed to parse data from ${file.name}`);
-        }
+      if (data.error) {
+        console.error(`Error in ${file.name}:`, data.error);
+        continue;
       }
 
-      await loadRecords();
-      setUploadProgress("Upload completed successfully!");
+      // Check for duplicates in Firestore
+      const q = query(
+        collection(db, "xrayRecords"),
+        where("uniqueId", "==", data.uniqueId)
+      );
+      const existing = await getDocs(q);
 
-      // Clear the file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
+      if (!existing.empty) {
+        console.log(`Record already exists for ${data.patientName}`);
+        continue;
       }
-    } catch (error) {
-      console.error("Upload error:", error);
-      setUploadProgress("Upload failed. Please try again.");
-    } finally {
-      setLoading(false);
-      setTimeout(() => setUploadProgress(""), 5000);
+
+      // Save to Firestore
+      await addDoc(collection(db, "xrayRecords"), data);
+      setUploadProgress(`Saved ${data.patientName}`);
+    } catch (err) {
+      console.error("Upload error:", err);
     }
-  };
+  }
+
+  await loadRecords();
+  setUploadProgress("Upload finished.");
+  setLoading(false);
+};
+
 
   // Load all records from Firestore
   const loadRecords = async () => {
@@ -284,6 +275,7 @@ const XRay: React.FC = () => {
 
   return (
     <div className={styles.page}>
+      <Sidebar onToggle={handleSidebarToggle} />
       <div className={styles.contentWrapper}>
         <div className={styles.header}>
           <h1 className={styles.pageTitle}>X-Ray Records Management</h1>
