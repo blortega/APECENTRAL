@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import styles from "@/styles/Sidebar.module.css";
 import { assets } from "@/components/assets";
@@ -11,17 +11,42 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
   const location = useLocation();
   const [isCollapsed, setIsCollapsed] = useState(!isOpen);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Sync internal state with external prop
   useEffect(() => {
     setIsCollapsed(!isOpen);
   }, [isOpen]);
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
   const handleToggleCollapse = () => {
     const newCollapsedState = !isCollapsed;
     setIsCollapsed(newCollapsedState);
     if (onToggle) {
       onToggle();
+    }
+  };
+
+  const handleDropdownToggle = () => {
+    if (!isCollapsed) {
+      setIsDropdownOpen(!isDropdownOpen);
     }
   };
 
@@ -34,24 +59,50 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
       path: "/dashboard",
       icon: "📊",
       label: "Dashboard",
-      description: "Overview & Statistics"
+      description: "Overview & Statistics",
     },
     {
       path: "/records",
       icon: "📋",
       label: "Medical Records",
-      description: "Complete Health History"
+      description: "Complete Health History",
     },
     {
       path: "/reports",
       icon: "📈",
       label: "Reports",
-      description: "Health Trends & Analysis"
-    }
+      description: "Health Trends & Analysis",
+    },
+  ];
+
+  const dropdownItems = [
+    {
+      path: "/profile",
+      icon: "👤",
+      label: "Profile Settings",
+    },
+    {
+      path: "/preferences",
+      icon: "⚙️",
+      label: "Preferences",
+    },
+    {
+      path: "/help",
+      icon: "❓",
+      label: "Help & Support",
+    },
+    {
+      path: "/login",
+      icon: "🚪",
+      label: "Sign Out",
+      isSignOut: true,
+    },
   ];
 
   return (
-    <aside className={`${styles.sidebar} ${isCollapsed ? styles.collapsed : ''}`}>
+    <aside
+      className={`${styles.sidebar} ${isCollapsed ? styles.collapsed : ""}`}
+    >
       <div className={styles.sidebarHeader}>
         <div className={styles.logoSection}>
           <img
@@ -79,14 +130,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
         <nav className={styles.navigation}>
           <h2 className={styles.sectionTitle}>Dashboard</h2>
           <p className={styles.sectionDescription}>Overview & Statistics</p>
-          
+
           <ul className={styles.menuList}>
             {menuItems.map((item) => (
               <li key={item.path} className={styles.menuItem}>
                 <Link
                   to={item.path}
                   className={`${styles.menuLink} ${
-                    isActive(item.path) ? styles.active : ''
+                    isActive(item.path) ? styles.active : ""
                   }`}
                 >
                   <span className={styles.menuIcon}>{item.icon}</span>
@@ -103,47 +154,62 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
             ))}
           </ul>
         </nav>
-
-        {/* {!isCollapsed && (
-          <div className={styles.healthMetrics}>
-            <div className={styles.metricItem}>
-              <span className={styles.metricValue}>12</span>
-              <span className={styles.metricLabel}>upcoming</span>
-            </div>
-            <div className={styles.metricItem}>
-              <span className={styles.metricValue}>85/100</span>
-              <span className={styles.metricLabel}>health score</span>
-            </div>
-            <div className={styles.metricItem}>
-              <span className={styles.metricValue}>45 days</span>
-              <span className={styles.metricLabel}>next exam</span>
-            </div>
-          </div>
-        )} */}
       </div>
 
       <div className={styles.sidebarFooter}>
-        <div className={styles.userSection}>
-          <div className={styles.userAvatar}>JD</div>
-          {!isCollapsed && (
+        <div className={styles.userSection} ref={dropdownRef}>
+          <div
+            className={`${styles.userContainer} ${
+              isDropdownOpen ? styles.userContainerActive : ""
+            }`}
+            onClick={handleDropdownToggle}
+          >
             <div className={styles.userInfo}>
-              <span className={styles.userName}>John Doe</span>
-              <span className={styles.userEmail}>john.doe@example.com</span>
+              <div className={styles.userAvatar}>JD</div>
+              {!isCollapsed && (
+                <div className={styles.userDetails}>
+                  <span className={styles.userName}>John Doe</span>
+                  <span className={styles.userEmail}>john.doe@example.com</span>
+                </div>
+              )}
+            </div>
+            {!isCollapsed && (
+              <div
+                className={`${styles.dropdownArrow} ${
+                  isDropdownOpen ? styles.dropdownArrowOpen : ""
+                }`}
+              >
+                ⌄
+              </div>
+            )}
+          </div>
+
+          {/* Dropdown Menu */}
+          {!isCollapsed && (
+            <div
+              className={`${styles.dropdown} ${
+                isDropdownOpen ? styles.dropdownOpen : ""
+              }`}
+            >
+              <ul className={styles.dropdownList}>
+                {dropdownItems.map((item) => (
+                  <li key={item.path} className={styles.dropdownItem}>
+                    <Link
+                      to={item.path}
+                      className={`${styles.dropdownLink} ${
+                        item.isSignOut ? styles.signOutLink : ""
+                      }`}
+                      onClick={() => setIsDropdownOpen(false)}
+                    >
+                      <span className={styles.dropdownIcon}>{item.icon}</span>
+                      <span className={styles.dropdownLabel}>{item.label}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
         </div>
-        {/* {!isCollapsed && (
-          <p className={styles.footerText}>
-            Monitor your annual physical exams, view health trends, and manage appointments all in one place.
-          </p>
-        )} */}
-        <Link
-          to="/login"
-          className={`${styles.logoutButton} ${isCollapsed ? styles.logoutCollapsed : ''}`}
-        >
-          <span className={styles.logoutIcon}>🚪</span>
-          {!isCollapsed && <span>Sign Out</span>}
-        </Link>
       </div>
     </aside>
   );
