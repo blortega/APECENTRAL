@@ -269,11 +269,18 @@
   position: relative;
   display: flex;
   align-items: center;
+  width: 100%;
+}
+
+/* Enhanced password container */
+.passwordContainer .input {
+  padding-right: 5rem;
+  width: 100%;
 }
 
 .passwordToggle {
   position: absolute;
-  right: 1rem;
+  right: 1.25rem;
   background: none;
   border: none;
   color: #0369a1;
@@ -733,11 +740,6 @@
 .primaryButton:disabled,
 .secondaryButton:disabled {
   pointer-events: none;
-}
-
-/* Enhanced password container */
-.passwordContainer .input {
-  padding-right: 4rem;
 }
 
 /* Error states (you can add error handling later) */

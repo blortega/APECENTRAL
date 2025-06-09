@@ -261,6 +261,16 @@
   justify-content: center;
 }
 
+.errorMessage {
+  background-color: #fee;
+  border: 1px solid #fcc;
+  color: #c33;
+  padding: 12px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
 /* Responsive design - matching homepage breakpoints */
 @media (max-width: 768px) {
   .page {

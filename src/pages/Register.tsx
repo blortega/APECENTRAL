@@ -45,7 +45,12 @@ const Register: React.FC = () => {
     let processedValue = value;
 
     // Auto-uppercase specific fields
-    if (name === "firstName" || name === "lastName" || name === "employeeId") {
+    if (
+      name === "firstName" ||
+      name === "lastName" ||
+      name === "middleInitial" ||
+      name === "employeeId"
+    ) {
       processedValue = value.toUpperCase();
     }
 
@@ -169,7 +174,7 @@ const Register: React.FC = () => {
         gender: formData.gender,
         birthdate: formData.birthdate,
         createdAt: serverTimestamp(),
-        role: "employee", // Default role
+        role: "Employee", // Default role
       });
 
       alert("Registration successful! Please sign in with your new account.");
