@@ -52,3 +52,13 @@ export default tseslint.config({
   },
 })
 ```
+
+# 1. Create a virtual environment
+python -m venv venv
+
+# 2. Activate the virtual environment (Windows)
+venv\Scripts\activate
+
+# 3. Start the FastAPI server using Uvicorn
+uvicorn main:app --reload
+```
