@@ -12,21 +12,32 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
   const location = useLocation();
   const [isCollapsed, setIsCollapsed] = useState(!isOpen);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isRecordsDropdownOpen, setIsRecordsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const recordsDropdownRef = useRef<HTMLLIElement>(null);
 
   // Sync internal state with external prop
   useEffect(() => {
     setIsCollapsed(!isOpen);
   }, [isOpen]);
 
-  // Close dropdown when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      // Handle user dropdown click outside
       if (
         dropdownRef.current &&
         !dropdownRef.current.contains(event.target as Node)
       ) {
         setIsDropdownOpen(false);
+      }
+
+      // Handle records dropdown click outside
+      if (
+        recordsDropdownRef.current &&
+        !recordsDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsRecordsDropdownOpen(false);
       }
     };
 
@@ -50,8 +61,24 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
     }
   };
 
+  const handleRecordsDropdownToggle = () => {
+    if (!isCollapsed) {
+      setIsRecordsDropdownOpen(!isRecordsDropdownOpen);
+    }
+  };
+
   const isActive = (path: string) => {
     return location.pathname === path;
+  };
+
+  const isRecordsActive = () => {
+    const recordsPaths = [
+      "/records",
+      "/records/cbc",
+      "/records/xray",
+      "/records/ecg",
+    ];
+    return recordsPaths.some((path) => location.pathname === path);
   };
 
   const menuItems = [
@@ -62,16 +89,31 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
       description: "Overview & Statistics",
     },
     {
-      path: "/records",
-      icon: "📋",
-      label: "Medical Records",
-      description: "Complete Health History",
-    },
-    {
       path: "/reports",
       icon: "📈",
       label: "Reports",
       description: "Health Trends & Analysis",
+    },
+  ];
+
+  const recordsSubItems = [
+    {
+      path: "/cbc",
+      icon: "🩸",
+      label: "CBC",
+      description: "Complete Blood Count",
+    },
+    {
+      path: "/xray",
+      icon: "🩻",
+      label: "X-Ray",
+      description: "Radiographic Images",
+    },
+    {
+      path: "/ecg",
+      icon: "💓",
+      label: "ECG",
+      description: "Electrocardiogram",
     },
   ];
 
@@ -152,6 +194,89 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
                 </Link>
               </li>
             ))}
+
+            {/* Medical Records with Dropdown */}
+            <li className={styles.menuItem} ref={recordsDropdownRef}>
+              <div
+                className={`${styles.menuLink} ${styles.dropdownParent} ${
+                  isRecordsActive() ? styles.active : ""
+                }`}
+                onClick={handleRecordsDropdownToggle}
+              >
+                <span className={styles.menuIcon}>📋</span>
+                {!isCollapsed && (
+                  <>
+                    <div className={styles.menuContent}>
+                      <span className={styles.menuLabel}>Medical Records</span>
+                      <span className={styles.menuDescription}>
+                        Complete Health History
+                      </span>
+                    </div>
+                    <div
+                      className={`${styles.dropdownToggle} ${
+                        isRecordsDropdownOpen ? styles.dropdownToggleOpen : ""
+                      }`}
+                    >
+                      ⌄
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Records Submenu */}
+              {!isCollapsed && (
+                <div
+                  className={`${styles.submenu} ${
+                    isRecordsDropdownOpen ? styles.submenuOpen : ""
+                  }`}
+                >
+                  <ul className={styles.submenuList}>
+                    <li className={styles.submenuItem}>
+                      <Link
+                        to="/records"
+                        className={`${styles.submenuLink} ${
+                          isActive("/records") ? styles.active : ""
+                        }`}
+                        onClick={() => setIsRecordsDropdownOpen(false)}
+                      >
+                        <span className={styles.submenuIcon}>📋</span>
+                        <div className={styles.submenuContent}>
+                          <span className={styles.submenuLabel}>
+                            All Records
+                          </span>
+                          <span className={styles.submenuDescription}>
+                            View All Medical Records
+                          </span>
+                        </div>
+                      </Link>
+                    </li>
+                    {recordsSubItems.map((item) => (
+                      <li key={item.path} className={styles.submenuItem}>
+                        <Link
+                          to={item.path}
+                          className={`${styles.submenuLink} ${
+                            isActive(item.path) ? styles.active : ""
+                          }`}
+                          onClick={() => setIsRecordsDropdownOpen(false)}
+                        >
+                          <span className={styles.submenuIcon}>
+                            {item.icon}
+                          </span>
+                          <div className={styles.submenuContent}>
+                            <span className={styles.submenuLabel}>
+                              {item.label}
+                            </span>
+                            <span className={styles.submenuDescription}>
+                              {item.description}
+                            </span>
+                          </div>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </li>
           </ul>
         </nav>
       </div>
