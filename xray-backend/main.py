@@ -131,29 +131,122 @@ def parse_cbc_data(text: str, filename: str) -> Dict:
         return match.group(1) if match else ""
 
     def extract_patient_info(field: str, fallback=""):
-        match = re.search(rf"{re.escape(field)}\s*[:\-]?\s*(.+)", text, re.IGNORECASE)
-        return match.group(1).strip() if match else fallback
+        # Try multiple patterns to handle different formats
+        patterns = [
+            rf"{re.escape(field)}\s*[:\-]?\s*(.+)",  # Original pattern with colon
+            rf"{re.escape(field)}\s+(.+)",  # Pattern without colon (2023 format)
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                return match.group(1).strip()
+        return fallback
 
-    def extract_gender():
-        match = re.search(r"Gender\s*/\s*Age\s*:\s*(\w+)\s*/\s*(\d+)", text)
-        if match:
-            return match.group(1), int(match.group(2))
-        return "", 0
+    def extract_gender_age():
+        # Handle both formats:
+        # 2025: separate Gender and Age fields
+        # 2023: "Gender / Age : FEMALE / 56Y" format
+        
+        # Try 2023 format first
+        match_2023 = re.search(r"Gender\s*/\s*Age\s*[:\-]?\s*(\w+)\s*/\s*(\d+)", text, re.IGNORECASE)
+        if match_2023:
+            return match_2023.group(1), int(match_2023.group(2))
+        
+        # Try 2025 format
+        gender_match = re.search(r"Gender\s*[:\-]?\s*(\w+)", text, re.IGNORECASE)
+        age_match = re.search(r"Age\s*[:\-]?\s*(\d+)", text, re.IGNORECASE)
+        
+        gender = gender_match.group(1) if gender_match else ""
+        age = int(age_match.group(1)) if age_match else 0
+        
+        return gender, age
 
-    gender, age = extract_gender()
+    def extract_name():
+        # Handle both formats:
+        # 2025: "Name: AMY A RADEN"
+        # 2023: "Name    : Ms AMY ARAGON RADEN" or just "Name    Ms AMY ARAGON RADEN"
+        
+        patterns = [
+            r"Name\s*[:\-]?\s*(.+?)(?=\s+MRN|\s+Location|\n|$)",  # Until MRN or Location
+            r"Name\s+(.+?)(?=\s+MRN|\s+Location|\n|$)",  # Without colon
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                return match.group(1).strip()
+        return ""
+
+    def extract_mrn():
+        # Handle both formats
+        patterns = [
+            r"MRN\s*[:\-]?\s*(\d+)",
+            r"MRN\s+(\d+)",
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                return match.group(1).strip()
+        return ""
+
+    def extract_dob():
+        # Handle both formats:
+        # 2025: "DOB: 11-01-1968"
+        # 2023: "DOB    01-Nov-1968"
+        
+        patterns = [
+            r"DOB\s*[:\-]?\s*([\d\-\w]+)",
+            r"DOB\s+([\d\-\w]+)",
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                return match.group(1).strip()
+        return ""
+
+    def extract_collection_datetime():
+        # Handle both formats
+        patterns = [
+            r"Collection\s+Date\s*/\s*Time\s*[:\-]?\s*(.+?)(?=\n|\s+Result)",
+            r"Collection\s+Date/Time\s*[:\-]?\s*(.+?)(?=\n|\s+Result)",
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                return match.group(1).strip()
+        return ""
+
+    def extract_result_validated():
+        # Handle both formats
+        patterns = [
+            r"Result\s+Validated\s*[:\-]?\s*(.+?)(?=\n|$)",
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                return match.group(1).strip()
+        return ""
+
+    # Extract patient information using the improved functions
+    gender, age = extract_gender_age()
 
     # Extract the WBC Absolute Count block
     absolute_count_block = extract_absolute_block(text)
 
     return {
-        # Patient Info
-        "patientName": extract_patient_info("Name"),
-        "mrn": extract_patient_info("MRN"),
+        # Patient Info - using improved extraction functions
+        "patientName": extract_name(),
+        "mrn": extract_mrn(),
         "gender": gender,
         "age": age,
-        "dob": extract_patient_info("DOB"),
-        "collectionDateTime": extract_patient_info("Collection Date/Time"),
-        "resultValidated": extract_patient_info("Result Validated"),
+        "dob": extract_dob(),
+        "collectionDateTime": extract_collection_datetime(),
+        "resultValidated": extract_result_validated(),
 
         # CBC Core Panel
         "rbc": get_cbc_value("RBC Count"),
