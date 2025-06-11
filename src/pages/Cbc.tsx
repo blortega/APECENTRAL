@@ -499,6 +499,34 @@ const Cbc: React.FC = () => {
                      (Result: {selectedRecord.neutrophils_abs?.result || 'N/A'}) (Unit: {selectedRecord.neutrophils_abs?.unit || 'N/A'}) (Range: {selectedRecord.neutrophils_abs?.reference_range || 'N/A'})
                     </span>                    
                   </div>
+
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>Lymphocyte:</span>
+                    <span className={styles.infoValue}>
+                     (Result: {selectedRecord.lymphocytes_abs?.result || 'N/A'}) (Unit: {selectedRecord.lymphocytes_abs?.unit || 'N/A'}) (Range: {selectedRecord.lymphocytes_abs?.reference_range || 'N/A'})
+                    </span>                    
+                  </div>
+
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>Monocyte:</span>
+                    <span className={styles.infoValue}>
+                     (Result: {selectedRecord.monocytes_abs?.result || 'N/A'}) (Unit: {selectedRecord.monocytes_abs?.unit || 'N/A'}) (Range: {selectedRecord.monocytes_abs?.reference_range || 'N/A'})
+                    </span>                    
+                  </div>
+
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>Eosinophil:</span>
+                    <span className={styles.infoValue}>
+                     (Result: {selectedRecord.eosinophils_abs?.result || 'N/A'}) (Unit: {selectedRecord.eosinophils_abs?.unit || 'N/A'}) (Range: {selectedRecord.eosinophils_abs?.reference_range || 'N/A'})
+                    </span>                    
+                  </div>
+
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>Basophil:</span>
+                    <span className={styles.infoValue}>
+                     (Result: {selectedRecord.basophils_abs?.result || 'N/A'}) (Unit: {selectedRecord.basophils_abs?.unit || 'N/A'}) (Range: {selectedRecord.basophils_abs?.reference_range || 'N/A'})
+                    </span>                    
+                  </div>
               </div>
             </div>
           </div>

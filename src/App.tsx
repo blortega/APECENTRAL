@@ -5,6 +5,7 @@ import Register from "@/pages/Register";
 import ForgotPassword from "@/pages/Forgot-Password";
 import XRay from "@/pages/XRay";
 import Cbc from "./pages/Cbc";
+import Urinalysis from "./pages/Urinalysis";
 
 
 function App() {
@@ -16,6 +17,7 @@ function App() {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/xray" element={<XRay />} />
       <Route path="/cbc" element={<Cbc />} />
+      <Route path="/urinalysis" element={<Urinalysis />} />
     </Routes>
   );
 }
