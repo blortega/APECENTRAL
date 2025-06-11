@@ -66,26 +66,29 @@ async def extract_cbc(file: UploadFile = File(...)) -> Dict:
 
 def parse_cbc_data(text: str, filename: str) -> Dict:
     def get_cbc_value(label: str):
-        # Match: Label <spaces> result <spaces> unit <spaces> reference range
-        pattern = rf"{re.escape(label)}\s+([\d.]+)\s+([^\s]+)\s+([\d.\- ]+)"
+        # Updated pattern to handle L/H flags
+        # Match: Label [L|H]? <spaces> result <spaces> unit <spaces> reference range
+        pattern = rf"{re.escape(label)}\s*([LH])?\s+([\d.]+)\s+([^\s]+)\s+([\d.\- ]+)"
         match = re.search(pattern, text)
         if match:
+            flag = match.group(1) if match.group(1) else ""  # L, H, or empty
             return {
-                "result": match.group(1).strip(),
-                "unit": match.group(2).strip(),
-                "reference_range": match.group(3).strip()
+                "result": match.group(2).strip(),
+                "unit": match.group(3).strip(),
+                "reference_range": match.group(4).strip(),
+                "flag": flag
             }
         return {
             "result": "",
             "unit": "",
-            "reference_range": ""
+            "reference_range": "",
+            "flag": ""
         }
     
     def extract_absolute_block(text: str) -> str:
         # Extract the WBC Absolute Count section specifically
-        # Try multiple patterns to capture the absolute count section
         patterns = [
-            r"WBC\s+Absolute\s+Count\s*(.*?)(?=\n\s*$|\Z)",  # Until end of text
+            r"WBC\s+Absolute\s+Count\s*(.*?)(?=\n\s*MEDICAL|\n\s*PRC|\Z)",  # Until signatures
             r"WBC\s+Absolute\s+Count\s*(.*?)(?=\n[A-Z][A-Z\s]*:)",  # Until next section
             r"WBC\s+Absolute\s+Count\s*(.*)"  # Everything after WBC Absolute Count
         ]
@@ -97,28 +100,30 @@ def parse_cbc_data(text: str, filename: str) -> Dict:
         return ""
 
     def get_cbc_value_from_block(label: str, block: str):
-        # Parse values specifically from the absolute count block
-        # Try multiple patterns to match the data
+        # Updated pattern to handle L/H flags in absolute count block
         patterns = [
-            rf"{re.escape(label)}\s+([\d.]+)\s+([^\s\n]+)\s+([\d.\- ]+)",
-            rf"{re.escape(label)}\s+([\d.]+)\s+(\#)\s+([\d.\- ]+)",
-            rf"{re.escape(label)}\s+([\d.]+)\s+([^\n]+)"
+            rf"{re.escape(label)}\s*([LH])?\s+([\d.]+)\s+(\#)\s+([\d.\- ]+)",
+            rf"{re.escape(label)}\s*([LH])?\s+([\d.]+)\s+([^\s\n]+)\s+([\d.\- ]+)",
+            rf"{re.escape(label)}\s*([LH])?\s+([\d.]+)\s+([^\n]+)"
         ]
         
         for pattern in patterns:
             match = re.search(pattern, block, re.IGNORECASE)
             if match:
                 groups = match.groups()
+                flag = groups[0] if groups[0] else ""  # L, H, or empty
                 return {
-                    "result": groups[0].strip(),
-                    "unit": groups[1].strip() if len(groups) > 1 else "#",
-                    "reference_range": groups[2].strip() if len(groups) > 2 else ""
+                    "result": groups[1].strip(),
+                    "unit": groups[2].strip() if len(groups) > 2 else "#",
+                    "reference_range": groups[3].strip() if len(groups) > 3 else "",
+                    "flag": flag
                 }
         
         return {
             "result": "",
             "unit": "",
-            "reference_range": ""
+            "reference_range": "",
+            "flag": ""
         }
 
     def extract_total_wbc_percent(text: str) -> str:
@@ -139,7 +144,6 @@ def parse_cbc_data(text: str, filename: str) -> Dict:
 
     # Extract the WBC Absolute Count block
     absolute_count_block = extract_absolute_block(text)
-    print(f"DEBUG - Absolute Count Block: {absolute_count_block}")  # Debug line - remove in production
 
     return {
         # Patient Info
