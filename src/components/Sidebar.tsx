@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { onAuthStateChanged } from "firebase/auth";
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { auth, db } from "@/firebaseConfig";
 import styles from "@/styles/Sidebar.module.css";
 import { assets } from "@/components/assets";
 
@@ -8,13 +11,88 @@ interface SidebarProps {
   onToggle?: () => void;
 }
 
+interface UserData {
+  email: string;
+  lastname: string;
+  firstname: string;
+  employeeId: string;
+  role: string;
+  // Include other fields that exist in your document
+  birthdate?: string;
+  createdAt?: string;
+  gender?: string;
+  middleinitial?: string;
+  uid?: string;
+}
+
 const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
   const location = useLocation();
   const [isCollapsed, setIsCollapsed] = useState(!isOpen);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isRecordsDropdownOpen, setIsRecordsDropdownOpen] = useState(false);
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const [isLoadingUser, setIsLoadingUser] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const recordsDropdownRef = useRef<HTMLLIElement>(null);
+
+  // Fetch user data when authentication state changes
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          // Query the users collection to find the user document by email
+          const usersRef = collection(db, "users");
+          const q = query(usersRef, where("email", "==", user.email));
+          const querySnapshot = await getDocs(q);
+
+          if (!querySnapshot.empty) {
+            // Get the first matching document
+            const userDoc = querySnapshot.docs[0];
+            const data = userDoc.data();
+
+            setUserData({
+              email: data.email || user.email || "",
+              lastname: data.lastname || "",
+              firstname: data.firstname || "",
+              employeeId: data.employeeId || "",
+              role: data.role || "Employee",
+              // Include other fields as needed
+              birthdate: data.birthdate,
+              createdAt: data.createdAt,
+              gender: data.gender,
+              middleinitial: data.middleinitial,
+              uid: data.uid,
+            });
+          } else {
+            console.error("User document not found");
+            // Fallback to auth user data
+            setUserData({
+              email: user.email || "",
+              lastname: "",
+              firstname: "",
+              employeeId: "",
+              role: "Employee",
+            });
+          }
+        } catch (error) {
+          console.error("Error fetching user data:", error);
+          // Fallback to auth user data
+          setUserData({
+            email: user.email || "",
+            lastname: "",
+            firstname: "",
+            employeeId: "",
+            role: "Employee",
+          });
+        }
+      } else {
+        setUserData(null);
+      }
+      setIsLoadingUser(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   // Sync internal state with external prop
   useEffect(() => {
@@ -24,7 +102,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      // Handle user dropdown click outside
       if (
         dropdownRef.current &&
         !dropdownRef.current.contains(event.target as Node)
@@ -32,7 +109,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
         setIsDropdownOpen(false);
       }
 
-      // Handle records dropdown click outside
       if (
         recordsDropdownRef.current &&
         !recordsDropdownRef.current.contains(event.target as Node)
@@ -79,6 +155,34 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
       "/records/ecg",
     ];
     return recordsPaths.some((path) => location.pathname === path);
+  };
+
+  // Generate user initials for avatar (using lastname only)
+  const getUserInitials = () => {
+    if (!userData) return "U";
+
+    if (userData.lastname) {
+      // Use first two letters of lastname, or first letter if lastname is short
+      return userData.lastname.length >= 2
+        ? userData.lastname.substring(0, 2).toUpperCase()
+        : userData.lastname.charAt(0).toUpperCase();
+    } else {
+      // Fallback to first letter of email
+      return userData.email ? userData.email.charAt(0).toUpperCase() : "U";
+    }
+  };
+
+  // Get display name (prioritize lastname, then firstname, then email)
+  const getDisplayName = () => {
+    if (!userData) return "Loading...";
+
+    if (userData.lastname) {
+      return userData.lastname;
+    } else if (userData.firstname) {
+      return userData.firstname;
+    } else {
+      return userData.email.split("@")[0];
+    }
   };
 
   const menuItems = [
@@ -290,11 +394,17 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
             onClick={handleDropdownToggle}
           >
             <div className={styles.userInfo}>
-              <div className={styles.userAvatar}>JD</div>
+              <div className={styles.userAvatar}>
+                {isLoadingUser ? "..." : getUserInitials()}
+              </div>
               {!isCollapsed && (
                 <div className={styles.userDetails}>
-                  <span className={styles.userName}>John Doe</span>
-                  <span className={styles.userEmail}>john.doe@example.com</span>
+                  <span className={styles.userName}>
+                    {isLoadingUser ? "Loading..." : getDisplayName()}
+                  </span>
+                  <span className={styles.userEmail}>
+                    {isLoadingUser ? "Loading..." : userData?.email || ""}
+                  </span>
                 </div>
               )}
             </div>
