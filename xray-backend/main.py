@@ -207,35 +207,80 @@ def extract_gender_age(text: str):
         return match.group(1).strip(), match.group(2).strip()
     return "", ""
 
-def extract_urinalysis_value(text: str, label: str, ref_pattern: str = r"[\d.\- ]+"):
+def extract_urinalysis_value(text: str, label: str, ref_pattern: str = None):
     """
-    Attempt to extract result, unit, and reference range for a given label.
+    Extracts result, unit, and reference range for a urinalysis label.
+    Handles cases where result+unit+label are squished together.
     """
-    # Look for: reference range, unit, result, then test name
-    pattern = rf"{ref_pattern}([^\dA-Z\n]+)?([\d.+\-]+)?{label}"
-    match = re.search(pattern, text, re.IGNORECASE)
+    # Pre-process known edge cases to make them easier to match
+    spaced_text = (
+        text.replace("RAREEpithelial Cells", "RARE Epithelial Cells")
+            .replace("RAREBacteria", "RARE Bacteria")
+            .replace("FEWEpithelial Cells", "FEW Epithelial Cells")
+            .replace("FEWBacteria", "FEW Bacteria")
+            .replace("MANYEpithelial Cells", "MANY Epithelial Cells")
+            .replace("MANYBacteria", "MANY Bacteria")
+    )
+
+    # Specific: match things like "0.2 - 1.0EU/dL0.2Urobilinogen"
+    if label.lower() == "urobilinogen":
+        pattern = r"([\d.]+ - [\d.]+)(EU/dL)?([\d.]+)?\s*" + re.escape(label)
+        match = re.search(pattern, spaced_text, re.IGNORECASE)
+        if match:
+            return {
+                "result": match.group(1) or "",
+                "unit": match.group(2) or "",
+                "reference_range": match.group(3),
+                "flag": ""
+            }
+        
+    if label.lower() in ["rbc", "wbc"]:
+        pattern = r"([\d.]+ - [\d.]+)/hpf([\d.]+)?\s*" + re.escape(label)
+        match = re.search(pattern, spaced_text, re.IGNORECASE)
+        if match:
+            return {
+                "result": match.group(3) or "",
+                "unit": match.group(2) or "",
+                "reference_range": match.group(1),
+                "flag": ""
+            }
+
+    # Epithelial Cells / Bacteria case: match e.g. /hpf 2.6 RARE Bacteria
+    if label.lower() in ["epithelial cells", "bacteria"]:
+        pattern = r"/hpf\s*([\d.]+)?\s*(RARE|FEW|MANY)?\s*" + re.escape(label)
+        match = re.search(pattern, spaced_text, re.IGNORECASE)
+        if match:
+            result = f"{match.group(1) or ''} {match.group(2) or ''}".strip()
+            return {
+                "result": result,
+                "unit": "/hpf",
+                "reference_range": "",  # PDF doesn't specify
+                "flag": ""
+            }
+
+    # General: match something like "NEGATIVEGlucose", "6.0PH", etc.
+    pattern = r"([^\s]+)\s*" + re.escape(label)
+    match = re.search(pattern, spaced_text, re.IGNORECASE)
     if match:
-        ref = match.group(0).split(label)[0].strip()
-        unit = match.group(1).strip() if match.group(1) else ""
-        result = match.group(2).strip() if match.group(2) else ""
         return {
-            "result": result,
-            "unit": unit,
-            "reference_range": ref,
-            "flag": ""
-        }
-    
-    # Fallback: just detect result like NEGATIVEGlucose or 6.0PH
-    alt_pattern = rf"([\w.+/-]+)\s*{label}"
-    match = re.search(alt_pattern, text)
-    if match:
-        return {
-            "result": match.group(1),
+            "result": match.group(1).strip(),
             "unit": "",
             "reference_range": "",
             "flag": ""
         }
 
+    # Fallback: handle special cases like "!Remarks:"
+    if label.lower() == "remarks":
+        match = re.search(r"([!@#$%^&*()\-+=~`<>/?]+)\s*" + re.escape(label), spaced_text)
+        if match:
+            return {
+                "result": match.group(1),
+                "unit": "",
+                "reference_range": "",
+                "flag": ""
+            }
+
+    # Default empty structure
     return {
         "result": "",
         "unit": "",
@@ -244,7 +289,10 @@ def extract_urinalysis_value(text: str, label: str, ref_pattern: str = r"[\d.\- 
     }
 
 
+
 def parse_urinalysis(text: str, filename: str) -> Dict:
+    print("===== RAW PDF TEXT =====")
+    print(text)
     gender, age = extract_gender_age(text)
 
     return {
@@ -272,10 +320,12 @@ def parse_urinalysis(text: str, filename: str) -> Dict:
         "urobilinogen": extract_urinalysis_value(text, "Urobilinogen"),
         "nitrite": extract_urinalysis_value(text, "Nitrite"),
         "leukocyte_esterase": extract_urinalysis_value(text, "Leukocyte Esterase"),
-        "rbc": extract_urinalysis_value(text, "RBC", r"\d+\.\d+ - \d+\.\d+/hpf"),
-        "wbc": extract_urinalysis_value(text, "WBC", r"\d+\.\d+ - \d+\.\d+/hpf"),
-        "epithelial_cells": extract_urinalysis_value(text, "Epithelial Cells", r"/hpf[\d. ]*"),
-        "bacteria": extract_urinalysis_value(text, "Bacteria", r"/hpf[\d. ]*"),
+        "rbc": extract_urinalysis_value(text, "RBC"),
+        "wbc": extract_urinalysis_value(text, "WBC"),
+        "epithelial_cells": extract_urinalysis_value(text, "Epithelial Cells"),
+        "bacteria": extract_urinalysis_value(text, "Bacteria"),
+        "hyaline_cast": extract_urinalysis_value(text, "Hyaline Cast"),
+        "remarks": extract_urinalysis_value(text, "Remarks:"),
 
         # Meta
         "fileName": filename,
