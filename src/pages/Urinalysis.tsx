@@ -48,6 +48,8 @@ interface UrinalysisRecord {
   wbc: LabValue;
   epithelial_cells: LabValue;
   bacteria: LabValue;
+  hyaline: LabValue;
+  remarks: LabValue;
   
   fileName: string;
   uploadDate: string;
