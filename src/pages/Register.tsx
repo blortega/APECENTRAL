@@ -7,9 +7,9 @@ import styles from "@/styles/Register.module.css";
 import { assets } from "@/components/assets";
 
 interface RegisterFormData {
-  firstName: string;
-  middleInitial: string;
-  lastName: string;
+  firstname: string;
+  middleinitial: string;
+  lastname: string;
   email: string;
   employeeId: string;
   gender: string;
@@ -27,9 +27,9 @@ const Register: React.FC = () => {
     useState<boolean>(false);
 
   const [formData, setFormData] = useState<RegisterFormData>({
-    firstName: "",
-    middleInitial: "",
-    lastName: "",
+    firstname: "",
+    middleinitial: "",
+    lastname: "",
     email: "",
     employeeId: "",
     gender: "",
@@ -45,7 +45,12 @@ const Register: React.FC = () => {
     let processedValue = value;
 
     // Auto-uppercase specific fields
-    if (name === "firstName" || name === "lastName" || name === "employeeId") {
+    if (
+      name === "firstname" ||
+      name === "lastname" ||
+      name === "middleinitial" ||
+      name === "employeeId"
+    ) {
       processedValue = value.toUpperCase();
     }
 
@@ -58,11 +63,11 @@ const Register: React.FC = () => {
   const validateStep = (step: number): boolean => {
     switch (step) {
       case 1:
-        if (!formData.firstName.trim()) {
+        if (!formData.firstname.trim()) {
           alert("Please enter your first name");
           return false;
         }
-        if (!formData.lastName.trim()) {
+        if (!formData.lastname.trim()) {
           alert("Please enter your last name");
           return false;
         }
@@ -161,15 +166,15 @@ const Register: React.FC = () => {
       // Store user data in Firestore
       await setDoc(doc(db, "users", formData.employeeId), {
         uid: userCredential.user.uid,
-        firstName: formData.firstName,
-        middleInitial: formData.middleInitial,
-        lastName: formData.lastName,
+        firstname: formData.firstname,
+        middleinitial: formData.middleinitial,
+        lastname: formData.lastname,
         email: formData.email,
         employeeId: formData.employeeId,
         gender: formData.gender,
         birthdate: formData.birthdate,
         createdAt: serverTimestamp(),
-        role: "employee", // Default role
+        role: "Employee", // Default role
       });
 
       alert("Registration successful! Please sign in with your new account.");
@@ -227,14 +232,14 @@ const Register: React.FC = () => {
       <h3 className={styles.stepTitle}>Personal Information</h3>
       <div className={styles.inputRow}>
         <div className={styles.inputGroup}>
-          <label htmlFor="firstName" className={styles.label}>
+          <label htmlFor="firstname" className={styles.label}>
             First Name *
           </label>
           <input
             type="text"
-            id="firstName"
-            name="firstName"
-            value={formData.firstName}
+            id="firstname"
+            name="firstname"
+            value={formData.firstname}
             onChange={handleInputChange}
             required
             className={styles.input}
@@ -243,14 +248,14 @@ const Register: React.FC = () => {
           />
         </div>
         <div className={styles.inputGroup}>
-          <label htmlFor="middleInitial" className={styles.label}>
+          <label htmlFor="middleinitial" className={styles.label}>
             M.I.
           </label>
           <input
             type="text"
-            id="middleInitial"
-            name="middleInitial"
-            value={formData.middleInitial}
+            id="middleinitial"
+            name="middleinitial"
+            value={formData.middleinitial}
             onChange={handleInputChange}
             className={styles.input}
             placeholder="M"
@@ -260,14 +265,14 @@ const Register: React.FC = () => {
         </div>
       </div>
       <div className={styles.inputGroup}>
-        <label htmlFor="lastName" className={styles.label}>
+        <label htmlFor="lastname" className={styles.label}>
           Last Name *
         </label>
         <input
           type="text"
-          id="lastName"
-          name="lastName"
-          value={formData.lastName}
+          id="lastname"
+          name="lastname"
+          value={formData.lastname}
           onChange={handleInputChange}
           required
           className={styles.input}

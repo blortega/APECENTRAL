@@ -28,7 +28,7 @@ interface XRayRecord {
   uploadDate: string;
 }
 
-const XRay: React.FC = () => {
+const XRayAdmin: React.FC = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [records, setRecords] = useState<XRayRecord[]>([]);
   const [loading, setLoading] = useState(false);
@@ -38,71 +38,72 @@ const XRay: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-
   const handleSidebarToggle = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
   };
 
-
   // Handle file upload
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-  const files = event.target.files;
-  if (!files) return;
+  const handleFileUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const files = event.target.files;
+    if (!files) return;
 
-  setLoading(true);
-  setUploadProgress("Starting upload...");
+    setLoading(true);
+    setUploadProgress("Starting upload...");
 
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
 
-    if (file.type !== "application/pdf") {
-      alert(`File ${file.name} is not a PDF file`);
-      continue;
-    }
-
-    setUploadProgress(`Processing ${file.name}... (${i + 1}/${files.length})`);
-
-    const formData = new FormData();
-    formData.append("file", file);
-
-    try {
-      const res = await fetch("http://localhost:8000/extract-xray", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await res.json();
-
-      if (data.error) {
-        console.error(`Error in ${file.name}:`, data.error);
+      if (file.type !== "application/pdf") {
+        alert(`File ${file.name} is not a PDF file`);
         continue;
       }
 
-      // Check for duplicates in Firestore
-      const q = query(
-        collection(db, "xrayRecords"),
-        where("uniqueId", "==", data.uniqueId)
+      setUploadProgress(
+        `Processing ${file.name}... (${i + 1}/${files.length})`
       );
-      const existing = await getDocs(q);
 
-      if (!existing.empty) {
-        console.log(`Record already exists for ${data.patientName}`);
-        continue;
+      const formData = new FormData();
+      formData.append("file", file);
+
+      try {
+        const res = await fetch("http://localhost:8000/extract-xray", {
+          method: "POST",
+          body: formData,
+        });
+
+        const data = await res.json();
+
+        if (data.error) {
+          console.error(`Error in ${file.name}:`, data.error);
+          continue;
+        }
+
+        // Check for duplicates in Firestore
+        const q = query(
+          collection(db, "xrayRecords"),
+          where("uniqueId", "==", data.uniqueId)
+        );
+        const existing = await getDocs(q);
+
+        if (!existing.empty) {
+          console.log(`Record already exists for ${data.patientName}`);
+          continue;
+        }
+
+        // Save to Firestore
+        await addDoc(collection(db, "xrayRecords"), data);
+        setUploadProgress(`Saved ${data.patientName}`);
+      } catch (err) {
+        console.error("Upload error:", err);
       }
-
-      // Save to Firestore
-      await addDoc(collection(db, "xrayRecords"), data);
-      setUploadProgress(`Saved ${data.patientName}`);
-    } catch (err) {
-      console.error("Upload error:", err);
     }
-  }
 
-  await loadRecords();
-  setUploadProgress("Upload finished.");
-  setLoading(false);
-};
-
+    await loadRecords();
+    setUploadProgress("Upload finished.");
+    setLoading(false);
+  };
 
   // Load all records from Firestore
   const loadRecords = async () => {
@@ -411,4 +412,4 @@ const XRay: React.FC = () => {
   );
 };
 
-export default XRay;
+export default XRayAdmin;
