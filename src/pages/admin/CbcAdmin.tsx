@@ -53,7 +53,7 @@ interface CBCRecord {
   uploadDate: string;
 }
 
-const Cbc: React.FC = () => {
+const CbcAdmin: React.FC = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [records, setRecords] = useState<CBCRecord[]>([]);
   const [loading, setLoading] = useState(false);
@@ -63,71 +63,72 @@ const Cbc: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-
   const handleSidebarToggle = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
   };
 
-
   // Handle file upload
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-  const files = event.target.files;
-  if (!files) return;
+  const handleFileUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const files = event.target.files;
+    if (!files) return;
 
-  setLoading(true);
-  setUploadProgress("Starting upload...");
+    setLoading(true);
+    setUploadProgress("Starting upload...");
 
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
 
-    if (file.type !== "application/pdf") {
-      alert(`File ${file.name} is not a PDF file`);
-      continue;
-    }
-
-    setUploadProgress(`Processing ${file.name}... (${i + 1}/${files.length})`);
-
-    const formData = new FormData();
-    formData.append("file", file);
-
-    try {
-      const res = await fetch("http://localhost:8000/extract-cbc", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await res.json();
-
-      if (data.error) {
-        console.error(`Error in ${file.name}:`, data.error);
+      if (file.type !== "application/pdf") {
+        alert(`File ${file.name} is not a PDF file`);
         continue;
       }
 
-      // Check for duplicates in Firestore
-      const q = query(
-        collection(db, "cbcRecords"),
-        where("uniqueId", "==", data.uniqueId)
+      setUploadProgress(
+        `Processing ${file.name}... (${i + 1}/${files.length})`
       );
-      const existing = await getDocs(q);
 
-      if (!existing.empty) {
-        console.log(`Record already exists for ${data.patientName}`);
-        continue;
+      const formData = new FormData();
+      formData.append("file", file);
+
+      try {
+        const res = await fetch("http://localhost:8000/extract-cbc", {
+          method: "POST",
+          body: formData,
+        });
+
+        const data = await res.json();
+
+        if (data.error) {
+          console.error(`Error in ${file.name}:`, data.error);
+          continue;
+        }
+
+        // Check for duplicates in Firestore
+        const q = query(
+          collection(db, "cbcRecords"),
+          where("uniqueId", "==", data.uniqueId)
+        );
+        const existing = await getDocs(q);
+
+        if (!existing.empty) {
+          console.log(`Record already exists for ${data.patientName}`);
+          continue;
+        }
+
+        // Save to Firestore
+        await addDoc(collection(db, "cbcRecords"), data);
+        setUploadProgress(`Saved ${data.patientName}`);
+      } catch (err) {
+        console.error("Upload error:", err);
       }
-
-      // Save to Firestore
-      await addDoc(collection(db, "cbcRecords"), data);
-      setUploadProgress(`Saved ${data.patientName}`);
-    } catch (err) {
-      console.error("Upload error:", err);
     }
-  }
 
-  await loadRecords();
-  setUploadProgress("Upload finished.");
-  setLoading(false);
-};
-
+    await loadRecords();
+    setUploadProgress("Upload finished.");
+    setLoading(false);
+  };
 
   // Load all records from Firestore
   const loadRecords = async () => {
@@ -170,7 +171,7 @@ const Cbc: React.FC = () => {
   const filteredRecords = records.filter(
     (record) =>
       record.patientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.uniqueId?.toLowerCase().includes(searchTerm.toLowerCase()) 
+      record.uniqueId?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   // Load records on component mount
@@ -384,149 +385,196 @@ const Cbc: React.FC = () => {
 
               <div className={styles.examSection}>
                 <h4 className={styles.sectionSubtitle}>COMPLETE BLOOD COUNT</h4>
-                
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>RBC Count:</span>
-                    <span className={styles.infoValue}>
-                      (Result: {selectedRecord.rbc.result}) (Unit: {selectedRecord.rbc.unit}) (Range: {selectedRecord.rbc.reference_range})
-                    </span>                    
-                  </div>
 
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Hematocrit:</span>
-                    <span className={styles.infoValue}>
-                      (Result: {selectedRecord.hematocrit.result}) (Unit: {selectedRecord.hematocrit.unit}) (Range: {selectedRecord.hematocrit.reference_range})
-                    </span>                    
-                  </div>
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>RBC Count:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.rbc.result}) (Unit:{" "}
+                    {selectedRecord.rbc.unit}) (Range:{" "}
+                    {selectedRecord.rbc.reference_range})
+                  </span>
+                </div>
 
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Hemoglobin:</span>
-                    <span className={styles.infoValue}>
-                      (Result: {selectedRecord.hemoglobin.result}) (Unit: {selectedRecord.hemoglobin.unit}) (Range: {selectedRecord.hemoglobin.reference_range})
-                    </span>                    
-                  </div>
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>Hematocrit:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.hematocrit.result}) (Unit:{" "}
+                    {selectedRecord.hematocrit.unit}) (Range:{" "}
+                    {selectedRecord.hematocrit.reference_range})
+                  </span>
+                </div>
 
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>MCV:</span>
-                    <span className={styles.infoValue}>
-                      (Result: {selectedRecord.mcv.result}) (Unit: {selectedRecord.mcv.unit}) (Range: {selectedRecord.mcv.reference_range})
-                    </span>                    
-                  </div>
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>Hemoglobin:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.hemoglobin.result}) (Unit:{" "}
+                    {selectedRecord.hemoglobin.unit}) (Range:{" "}
+                    {selectedRecord.hemoglobin.reference_range})
+                  </span>
+                </div>
 
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>MCH:</span>
-                    <span className={styles.infoValue}>
-                      (Result: {selectedRecord.mch.result}) (Unit: {selectedRecord.mch.unit}) (Range: {selectedRecord.mch.reference_range})
-                    </span>                    
-                  </div>
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>MCV:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.mcv.result}) (Unit:{" "}
+                    {selectedRecord.mcv.unit}) (Range:{" "}
+                    {selectedRecord.mcv.reference_range})
+                  </span>
+                </div>
 
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>MCHC:</span>
-                    <span className={styles.infoValue}>
-                      (Result: {selectedRecord.mchc.result}) (Unit: {selectedRecord.mchc.unit}) (Range: {selectedRecord.mchc.reference_range})
-                    </span>                    
-                  </div>
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>MCH:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.mch.result}) (Unit:{" "}
+                    {selectedRecord.mch.unit}) (Range:{" "}
+                    {selectedRecord.mch.reference_range})
+                  </span>
+                </div>
 
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>RDW:</span>
-                    <span className={styles.infoValue}>
-                      (Result: {selectedRecord.rdw.result}) (Unit: {selectedRecord.rdw.unit}) (Range: {selectedRecord.rdw.reference_range})
-                    </span>                    
-                  </div>
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>MCHC:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.mchc.result}) (Unit:{" "}
+                    {selectedRecord.mchc.unit}) (Range:{" "}
+                    {selectedRecord.mchc.reference_range})
+                  </span>
+                </div>
 
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Platelet Count:</span>
-                    <span className={styles.infoValue}>
-                      (Result: {selectedRecord.platelets.result}) (Unit: {selectedRecord.platelets.unit}) (Range: {selectedRecord.platelets.reference_range})
-                    </span>                    
-                  </div>
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>RDW:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.rdw.result}) (Unit:{" "}
+                    {selectedRecord.rdw.unit}) (Range:{" "}
+                    {selectedRecord.rdw.reference_range})
+                  </span>
+                </div>
 
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>MPV:</span>
-                    <span className={styles.infoValue}>
-                      (Result: {selectedRecord.mpv.result}) (Unit: {selectedRecord.mpv.unit}) (Range: {selectedRecord.mpv.reference_range})
-                    </span>                    
-                  </div>
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>Platelet Count:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.platelets.result}) (Unit:{" "}
+                    {selectedRecord.platelets.unit}) (Range:{" "}
+                    {selectedRecord.platelets.reference_range})
+                  </span>
+                </div>
 
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>WBC Count:</span>
-                    <span className={styles.infoValue}>
-                      (Result: {selectedRecord.wbc.result}) (Unit: {selectedRecord.wbc.unit}) (Range: {selectedRecord.wbc.reference_range})
-                    </span>                    
-                  </div>
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>MPV:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.mpv.result}) (Unit:{" "}
+                    {selectedRecord.mpv.unit}) (Range:{" "}
+                    {selectedRecord.mpv.reference_range})
+                  </span>
+                </div>
 
-                <h4 className={styles.sectionSubtitle}>WBC Differential Count</h4>
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Neutrophil:</span>
-                    <span className={styles.infoValue}>
-                      (Result: {selectedRecord.neutrophils_percent.result}) (Unit: {selectedRecord.neutrophils_percent.unit}) (Range: {selectedRecord.neutrophils_percent.reference_range})
-                    </span>                    
-                  </div>
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>WBC Count:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.wbc.result}) (Unit:{" "}
+                    {selectedRecord.wbc.unit}) (Range:{" "}
+                    {selectedRecord.wbc.reference_range})
+                  </span>
+                </div>
 
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Lymphocytes:</span>
-                    <span className={styles.infoValue}>
-                      (Result: {selectedRecord.lymphocytes_percent.result}) (Unit: {selectedRecord.lymphocytes_percent.unit}) (Range: {selectedRecord.lymphocytes_percent.reference_range})
-                    </span>                    
-                  </div>
+                <h4 className={styles.sectionSubtitle}>
+                  WBC Differential Count
+                </h4>
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>Neutrophil:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.neutrophils_percent.result}) (Unit:{" "}
+                    {selectedRecord.neutrophils_percent.unit}) (Range:{" "}
+                    {selectedRecord.neutrophils_percent.reference_range})
+                  </span>
+                </div>
 
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Monocytes:</span>
-                    <span className={styles.infoValue}>
-                      (Result: {selectedRecord.monocytes_percent.result}) (Unit: {selectedRecord.monocytes_percent.unit}) (Range: {selectedRecord.monocytes_percent.reference_range})
-                    </span>                    
-                  </div>
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>Lymphocytes:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.lymphocytes_percent.result}) (Unit:{" "}
+                    {selectedRecord.lymphocytes_percent.unit}) (Range:{" "}
+                    {selectedRecord.lymphocytes_percent.reference_range})
+                  </span>
+                </div>
 
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Eosinophil:</span>
-                    <span className={styles.infoValue}>
-                      (Result: {selectedRecord.eosinophils_percent.result}) (Unit: {selectedRecord.eosinophils_percent.unit}) (Range: {selectedRecord.eosinophils_percent.reference_range})
-                    </span>                    
-                  </div>
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>Monocytes:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.monocytes_percent.result}) (Unit:{" "}
+                    {selectedRecord.monocytes_percent.unit}) (Range:{" "}
+                    {selectedRecord.monocytes_percent.reference_range})
+                  </span>
+                </div>
 
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Basophil:</span>
-                    <span className={styles.infoValue}>
-                      (Result: {selectedRecord.basophils_percent.result}) (Unit: {selectedRecord.basophils_percent.unit}) (Range: {selectedRecord.basophils_percent.reference_range})
-                    </span>                   
-                  </div>
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>Eosinophil:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.eosinophils_percent.result}) (Unit:{" "}
+                    {selectedRecord.eosinophils_percent.unit}) (Range:{" "}
+                    {selectedRecord.eosinophils_percent.reference_range})
+                  </span>
+                </div>
 
-                  <h4 className={styles.sectionSubtitle}>WBC Absolute Count</h4>
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>Basophil:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.basophils_percent.result}) (Unit:{" "}
+                    {selectedRecord.basophils_percent.unit}) (Range:{" "}
+                    {selectedRecord.basophils_percent.reference_range})
+                  </span>
+                </div>
 
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Neutrophil:</span>
-                    <span className={styles.infoValue}>
-                     (Result: {selectedRecord.neutrophils_abs?.result || 'N/A'}) (Unit: {selectedRecord.neutrophils_abs?.unit || 'N/A'}) (Range: {selectedRecord.neutrophils_abs?.reference_range || 'N/A'})
-                    </span>                    
-                  </div>
+                <h4 className={styles.sectionSubtitle}>WBC Absolute Count</h4>
 
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Lymphocyte:</span>
-                    <span className={styles.infoValue}>
-                     (Result: {selectedRecord.lymphocytes_abs?.result || 'N/A'}) (Unit: {selectedRecord.lymphocytes_abs?.unit || 'N/A'}) (Range: {selectedRecord.lymphocytes_abs?.reference_range || 'N/A'})
-                    </span>                    
-                  </div>
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>Neutrophil:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.neutrophils_abs?.result || "N/A"})
+                    (Unit: {selectedRecord.neutrophils_abs?.unit || "N/A"})
+                    (Range:{" "}
+                    {selectedRecord.neutrophils_abs?.reference_range || "N/A"})
+                  </span>
+                </div>
 
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Monocyte:</span>
-                    <span className={styles.infoValue}>
-                     (Result: {selectedRecord.monocytes_abs?.result || 'N/A'}) (Unit: {selectedRecord.monocytes_abs?.unit || 'N/A'}) (Range: {selectedRecord.monocytes_abs?.reference_range || 'N/A'})
-                    </span>                    
-                  </div>
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>Lymphocyte:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.lymphocytes_abs?.result || "N/A"})
+                    (Unit: {selectedRecord.lymphocytes_abs?.unit || "N/A"})
+                    (Range:{" "}
+                    {selectedRecord.lymphocytes_abs?.reference_range || "N/A"})
+                  </span>
+                </div>
 
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Eosinophil:</span>
-                    <span className={styles.infoValue}>
-                     (Result: {selectedRecord.eosinophils_abs?.result || 'N/A'}) (Unit: {selectedRecord.eosinophils_abs?.unit || 'N/A'}) (Range: {selectedRecord.eosinophils_abs?.reference_range || 'N/A'})
-                    </span>                    
-                  </div>
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>Monocyte:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.monocytes_abs?.result || "N/A"})
+                    (Unit: {selectedRecord.monocytes_abs?.unit || "N/A"})
+                    (Range:{" "}
+                    {selectedRecord.monocytes_abs?.reference_range || "N/A"})
+                  </span>
+                </div>
 
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Basophil:</span>
-                    <span className={styles.infoValue}>
-                     (Result: {selectedRecord.basophils_abs?.result || 'N/A'}) (Unit: {selectedRecord.basophils_abs?.unit || 'N/A'}) (Range: {selectedRecord.basophils_abs?.reference_range || 'N/A'})
-                    </span>                    
-                  </div>
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>Eosinophil:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.eosinophils_abs?.result || "N/A"})
+                    (Unit: {selectedRecord.eosinophils_abs?.unit || "N/A"})
+                    (Range:{" "}
+                    {selectedRecord.eosinophils_abs?.reference_range || "N/A"})
+                  </span>
+                </div>
+
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>Basophil:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.basophils_abs?.result || "N/A"})
+                    (Unit: {selectedRecord.basophils_abs?.unit || "N/A"})
+                    (Range:{" "}
+                    {selectedRecord.basophils_abs?.reference_range || "N/A"})
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -536,4 +584,4 @@ const Cbc: React.FC = () => {
   );
 };
 
-export default Cbc;
+export default CbcAdmin;

@@ -3,10 +3,12 @@ import Home from "@/pages/Home";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import ForgotPassword from "@/pages/Forgot-Password";
-import XRay from "@/pages/XRay";
-import Cbc from "./pages/Cbc";
-import Urinalysis from "./pages/Urinalysis";
-
+import XRayAdmin from "@/pages/admin/XRayAdmin";
+import CbcAdmin from "./pages/admin/CbcAdmin";
+import UrinalysisAdmin from "./pages/admin/UrinalysisAdmin";
+import XRayUser from "./pages/user/XRayUser";
+import CbcUser from "./pages/user/CbcUser";
+import UrinalysisUser from "./pages/user/UrinalysisUser";
 
 function App() {
   return (
@@ -15,9 +17,12 @@ function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
-      <Route path="/xray" element={<XRay />} />
-      <Route path="/cbc" element={<Cbc />} />
-      <Route path="/urinalysis" element={<Urinalysis />} />
+      <Route path="/xrayadmin" element={<XRayAdmin />} />
+      <Route path="/cbcadmin" element={<CbcAdmin />} />
+      <Route path="/urinalysisadmin" element={<UrinalysisAdmin />} />
+      <Route path="/xrayuser" element={<XRayUser />} />
+      <Route path="/cbcuser" element={<CbcUser />} />
+      <Route path="/urinalysisuser" element={<UrinalysisUser />} />
     </Routes>
   );
 }

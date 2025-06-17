@@ -49,7 +49,7 @@ const Login: React.FC = () => {
       console.log("User signed in:", userCredential.user);
 
       // Redirect to XRay page
-      navigate("/xray");
+      navigate("/xrayadmin");
     } catch (error: any) {
       console.error("Login error:", error);
 
