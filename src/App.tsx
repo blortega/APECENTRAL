@@ -9,6 +9,7 @@ import UrinalysisAdmin from "./pages/admin/UrinalysisAdmin";
 import XRayUser from "./pages/user/XRayUser";
 import CbcUser from "./pages/user/CbcUser";
 import UrinalysisUser from "./pages/user/UrinalysisUser";
+import EcgAdmin from "./pages/admin/EcgAdmin";
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/xrayadmin" element={<XRayAdmin />} />
       <Route path="/cbcadmin" element={<CbcAdmin />} />
+      <Route path="/ecgadmin" element={<EcgAdmin/>}/>
       <Route path="/urinalysisadmin" element={<UrinalysisAdmin />} />
       <Route path="/xrayuser" element={<XRayUser />} />
       <Route path="/cbcuser" element={<CbcUser />} />

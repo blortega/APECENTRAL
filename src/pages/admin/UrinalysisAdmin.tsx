@@ -502,7 +502,7 @@ const UrinalysisAdmin: React.FC = () => {
                   </span>
                 </div>
 
-                <h4 className={styles.sectionSubtitle}>URINE FLOW CYTOMETRYsss</h4>
+                <h4 className={styles.sectionSubtitle}>URINE FLOW CYTOMETRY</h4>
 
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>RBC:</span>
