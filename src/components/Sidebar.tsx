@@ -220,7 +220,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
       label: "ECG",
       description: "Electrocardiogram",
     },
-    
+
     {
       path: "/urinalysisadmin",
       icon: "💓",
@@ -293,6 +293,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
                   className={`${styles.menuLink} ${
                     isActive(item.path) ? styles.active : ""
                   }`}
+                  data-tooltip={item.label}
                 >
                   <span className={styles.menuIcon}>{item.icon}</span>
                   {!isCollapsed && (
@@ -369,6 +370,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
                           className={`${styles.submenuLink} ${
                             isActive(item.path) ? styles.active : ""
                           }`}
+                          data-tooltip={item.label}
                           onClick={() => setIsRecordsDropdownOpen(false)}
                         >
                           <span className={styles.submenuIcon}>
