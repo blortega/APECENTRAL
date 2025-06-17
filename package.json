@@ -16,7 +16,7 @@
     "lucide-react": "^0.511.0",
     "path": "^0.12.7",
     "pdf-parse": "^1.1.1",
-    "pdfjs-dist": "^5.2.133",
+    "pdfjs-dist": "^5.3.31",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-firebase-hooks": "^5.1.1",

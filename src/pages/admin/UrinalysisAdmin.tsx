@@ -12,132 +12,136 @@ import { db } from "@/firebaseConfig";
 import styles from "@/styles/XRay.module.css";
 import Sidebar from "@/components/Sidebar";
 
-interface CBCValue {
+interface LabValue {
   result: string;
   unit: string;
   reference_range: string;
 }
 
-interface CBCRecord {
+interface UrinalysisRecord {
   id?: string;
   uniqueId: string;
   patientName: string;
   mrn: string;
   gender: string;
-  age: number;
+  age: string;
   dob: string;
   collectionDateTime: string;
   resultValidated: string;
-  rbc: CBCValue;
-  hemoglobin: CBCValue;
-  hematocrit: CBCValue;
-  mcv: CBCValue;
-  mch: CBCValue;
-  mchc: CBCValue;
-  rdw: CBCValue;
-  platelets: CBCValue;
-  mpv: CBCValue;
-  wbc: CBCValue;
-  neutrophils_percent: CBCValue;
-  lymphocytes_percent: CBCValue;
-  monocytes_percent: CBCValue;
-  eosinophils_percent: CBCValue;
-  basophils_percent: CBCValue;
-  total_percent: CBCValue;
-  neutrophils_abs: CBCValue;
-  lymphocytes_abs: CBCValue;
-  monocytes_abs: CBCValue;
-  eosinophils_abs: CBCValue;
-  basophils_abs: CBCValue;
+  orderNumber: string;
+  location: string;
+
+  color: LabValue;
+  clarity: LabValue;
+  glucose: LabValue;
+  bilirubin: LabValue;
+  ketones: LabValue;
+  specific_gravity: LabValue;
+  blood: LabValue;
+  ph: LabValue;
+  protein: LabValue;
+  urobilinogen: LabValue;
+  nitrite: LabValue;
+  leukocyte_esterase: LabValue;
+  rbc: LabValue;
+  wbc: LabValue;
+  epithelial_cells: LabValue;
+  bacteria: LabValue;
+
   fileName: string;
   uploadDate: string;
 }
 
-const Cbc: React.FC = () => {
+const UrinalysisAdmin: React.FC = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [records, setRecords] = useState<CBCRecord[]>([]);
+  const [records, setRecords] = useState<UrinalysisRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedRecord, setSelectedRecord] = useState<CBCRecord | null>(null);
+  const [selectedRecord, setSelectedRecord] = useState<UrinalysisRecord | null>(
+    null
+  );
   const [showModal, setShowModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
 
   const handleSidebarToggle = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
   };
 
-
   // Handle file upload
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-  const files = event.target.files;
-  if (!files) return;
+  const handleFileUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const files = event.target.files;
+    if (!files) return;
 
-  setLoading(true);
-  setUploadProgress("Starting upload...");
+    setLoading(true);
+    setUploadProgress("Starting upload...");
 
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
 
-    if (file.type !== "application/pdf") {
-      alert(`File ${file.name} is not a PDF file`);
-      continue;
-    }
-
-    setUploadProgress(`Processing ${file.name}... (${i + 1}/${files.length})`);
-
-    const formData = new FormData();
-    formData.append("file", file);
-
-    try {
-      const res = await fetch("http://localhost:8000/extract-cbc", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await res.json();
-
-      if (data.error) {
-        console.error(`Error in ${file.name}:`, data.error);
+      if (file.type !== "application/pdf") {
+        alert(`File ${file.name} is not a PDF file`);
         continue;
       }
 
-      // Check for duplicates in Firestore
-      const q = query(
-        collection(db, "cbcRecords"),
-        where("uniqueId", "==", data.uniqueId)
+      setUploadProgress(
+        `Processing ${file.name}... (${i + 1}/${files.length})`
       );
-      const existing = await getDocs(q);
 
-      if (!existing.empty) {
-        console.log(`Record already exists for ${data.patientName}`);
-        continue;
+      const formData = new FormData();
+      formData.append("file", file);
+
+      try {
+        const res = await fetch("http://localhost:8000/extract-urinalysis", {
+          method: "POST",
+          body: formData,
+        });
+
+        const data = await res.json();
+
+        console.log("Parsed Data from backend:", data);
+
+        if (data.error) {
+          console.error(`Error in ${file.name}:`, data.error);
+          continue;
+        }
+
+        // Check for duplicates in Firestore
+        const q = query(
+          collection(db, "urinalysisRecords"),
+          where("uniqueId", "==", data.uniqueId)
+        );
+        const existing = await getDocs(q);
+
+        if (!existing.empty) {
+          console.log(`Record already exists for ${data.patientName}`);
+          continue;
+        }
+
+        // Save to Firestore
+        await addDoc(collection(db, "urinalysisRecords"), data);
+        setUploadProgress(`Saved ${data.patientName}`);
+      } catch (err) {
+        console.error("Upload error:", err);
       }
-
-      // Save to Firestore
-      await addDoc(collection(db, "cbcRecords"), data);
-      setUploadProgress(`Saved ${data.patientName}`);
-    } catch (err) {
-      console.error("Upload error:", err);
     }
-  }
 
-  await loadRecords();
-  setUploadProgress("Upload finished.");
-  setLoading(false);
-};
-
+    await loadRecords();
+    setUploadProgress("Upload finished.");
+    setLoading(false);
+  };
 
   // Load all records from Firestore
   const loadRecords = async () => {
     try {
       setLoading(true);
-      const querySnapshot = await getDocs(collection(db, "cbcRecords"));
-      const loadedRecords: CBCRecord[] = [];
+      const querySnapshot = await getDocs(collection(db, "urinalysisRecords"));
+      const loadedRecords: UrinalysisRecord[] = [];
 
       querySnapshot.forEach((doc) => {
-        loadedRecords.push({ id: doc.id, ...doc.data() } as CBCRecord);
+        loadedRecords.push({ id: doc.id, ...doc.data() } as UrinalysisRecord);
       });
 
       // Sort by upload date (newest first)
@@ -159,7 +163,7 @@ const Cbc: React.FC = () => {
     if (!window.confirm("Are you sure you want to delete this record?")) return;
 
     try {
-      await deleteDoc(doc(db, "cbcRecords", recordId));
+      await deleteDoc(doc(db, "urinalysisRecords", recordId));
       await loadRecords();
     } catch (error) {
       console.error("Error deleting record:", error);
@@ -170,7 +174,7 @@ const Cbc: React.FC = () => {
   const filteredRecords = records.filter(
     (record) =>
       record.patientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.uniqueId?.toLowerCase().includes(searchTerm.toLowerCase()) 
+      record.uniqueId?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   // Load records on component mount
@@ -183,9 +187,9 @@ const Cbc: React.FC = () => {
       <Sidebar onToggle={handleSidebarToggle} />
       <div className={styles.contentWrapper}>
         <div className={styles.header}>
-          <h1 className={styles.pageTitle}>CBC Records Management</h1>
+          <h1 className={styles.pageTitle}>Urinalysis Records Management</h1>
           <p className={styles.pageDescription}>
-            Upload and manage Complete Blood Count (CBC) lab results.
+            Upload and manage Urinalysis lab results.
           </p>
         </div>
 
@@ -193,9 +197,9 @@ const Cbc: React.FC = () => {
           {/* Upload Section */}
           <section className={styles.uploadSection}>
             <div className={styles.sectionHeader}>
-              <h2 className={styles.sectionTitle}>Upload CBC PDFs</h2>
+              <h2 className={styles.sectionTitle}>Upload Urinalysis PDFs</h2>
               <p className={styles.sectionDescription}>
-                Select PDF files containing CBC Results
+                Select PDF files containing Urinalysis Results
               </p>
             </div>
             <div className={styles.uploadCard}>
@@ -247,7 +251,7 @@ const Cbc: React.FC = () => {
                   Patient Records ({filteredRecords.length})
                 </h2>
                 <p className={styles.recordsSubtitle}>
-                  View and manage CBC lab results
+                  View and manage Urinalysis results
                 </p>
               </div>
               <button
@@ -331,7 +335,7 @@ const Cbc: React.FC = () => {
         >
           <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
             <div className={styles.modalHeader}>
-              <h3 className={styles.modalTitle}>CBC Result Details</h3>
+              <h3 className={styles.modalTitle}>Urinalysis Result Details</h3>
               <button
                 onClick={() => setShowModal(false)}
                 className={styles.closeButton}
@@ -383,122 +387,26 @@ const Cbc: React.FC = () => {
               </div>
 
               <div className={styles.examSection}>
-                <h4 className={styles.sectionSubtitle}>COMPLETE BLOOD COUNT</h4>
-                
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>RBC Count:</span>
-                    <span className={styles.infoValue}>
-                      (Result: {selectedRecord.rbc.result}) (Unit: {selectedRecord.rbc.unit}) (Range: {selectedRecord.rbc.reference_range})
-                    </span>                    
-                  </div>
+                <h4 className={styles.sectionSubtitle}>Urinalysis, Routine</h4>
+                <h4 className={styles.sectionSubtitle}>PHYSICAL EXAMINATION</h4>
 
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Hematocrit:</span>
-                    <span className={styles.infoValue}>
-                      (Result: {selectedRecord.hematocrit.result}) (Unit: {selectedRecord.hematocrit.unit}) (Range: {selectedRecord.hematocrit.reference_range})
-                    </span>                    
-                  </div>
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>Color:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.color?.result || "N/A"}) (Unit:{" "}
+                    {selectedRecord.color?.unit || "N/A"}) (Range:{" "}
+                    {selectedRecord.color?.reference_range || "N/A"})
+                  </span>
+                </div>
 
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Hemoglobin:</span>
-                    <span className={styles.infoValue}>
-                      (Result: {selectedRecord.hemoglobin.result}) (Unit: {selectedRecord.hemoglobin.unit}) (Range: {selectedRecord.hemoglobin.reference_range})
-                    </span>                    
-                  </div>
-
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>MCV:</span>
-                    <span className={styles.infoValue}>
-                      (Result: {selectedRecord.mcv.result}) (Unit: {selectedRecord.mcv.unit}) (Range: {selectedRecord.mcv.reference_range})
-                    </span>                    
-                  </div>
-
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>MCH:</span>
-                    <span className={styles.infoValue}>
-                      (Result: {selectedRecord.mch.result}) (Unit: {selectedRecord.mch.unit}) (Range: {selectedRecord.mch.reference_range})
-                    </span>                    
-                  </div>
-
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>MCHC:</span>
-                    <span className={styles.infoValue}>
-                      (Result: {selectedRecord.mchc.result}) (Unit: {selectedRecord.mchc.unit}) (Range: {selectedRecord.mchc.reference_range})
-                    </span>                    
-                  </div>
-
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>RDW:</span>
-                    <span className={styles.infoValue}>
-                      (Result: {selectedRecord.rdw.result}) (Unit: {selectedRecord.rdw.unit}) (Range: {selectedRecord.rdw.reference_range})
-                    </span>                    
-                  </div>
-
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Platelet Count:</span>
-                    <span className={styles.infoValue}>
-                      (Result: {selectedRecord.platelets.result}) (Unit: {selectedRecord.platelets.unit}) (Range: {selectedRecord.platelets.reference_range})
-                    </span>                    
-                  </div>
-
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>MPV:</span>
-                    <span className={styles.infoValue}>
-                      (Result: {selectedRecord.mpv.result}) (Unit: {selectedRecord.mpv.unit}) (Range: {selectedRecord.mpv.reference_range})
-                    </span>                    
-                  </div>
-
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>WBC Count:</span>
-                    <span className={styles.infoValue}>
-                      (Result: {selectedRecord.wbc.result}) (Unit: {selectedRecord.wbc.unit}) (Range: {selectedRecord.wbc.reference_range})
-                    </span>                    
-                  </div>
-
-                <h4 className={styles.sectionSubtitle}>WBC Differential Count</h4>
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Neutrophil:</span>
-                    <span className={styles.infoValue}>
-                      (Result: {selectedRecord.neutrophils_percent.result}) (Unit: {selectedRecord.neutrophils_percent.unit}) (Range: {selectedRecord.neutrophils_percent.reference_range})
-                    </span>                    
-                  </div>
-
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Lymphocytes:</span>
-                    <span className={styles.infoValue}>
-                      (Result: {selectedRecord.lymphocytes_percent.result}) (Unit: {selectedRecord.lymphocytes_percent.unit}) (Range: {selectedRecord.lymphocytes_percent.reference_range})
-                    </span>                    
-                  </div>
-
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Monocytes:</span>
-                    <span className={styles.infoValue}>
-                      (Result: {selectedRecord.monocytes_percent.result}) (Unit: {selectedRecord.monocytes_percent.unit}) (Range: {selectedRecord.monocytes_percent.reference_range})
-                    </span>                    
-                  </div>
-
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Eosinophil:</span>
-                    <span className={styles.infoValue}>
-                      (Result: {selectedRecord.eosinophils_percent.result}) (Unit: {selectedRecord.eosinophils_percent.unit}) (Range: {selectedRecord.eosinophils_percent.reference_range})
-                    </span>                    
-                  </div>
-
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Basophil:</span>
-                    <span className={styles.infoValue}>
-                      (Result: {selectedRecord.basophils_percent.result}) (Unit: {selectedRecord.basophils_percent.unit}) (Range: {selectedRecord.basophils_percent.reference_range})
-                    </span>                   
-                  </div>
-
-                  <h4 className={styles.sectionSubtitle}>WBC Absolute Count</h4>
-
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Neutrophil:</span>
-                    <span className={styles.infoValue}>
-                     (Result: {selectedRecord.neutrophils_abs?.result || 'N/A'}) (Unit: {selectedRecord.neutrophils_abs?.unit || 'N/A'}) (Range: {selectedRecord.neutrophils_abs?.reference_range || 'N/A'})
-                    </span>                    
-                  </div>
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>Clarity:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.clarity?.result || "N/A"}) (Unit:{" "}
+                    {selectedRecord.clarity?.unit || "N/A"}) (Range:{" "}
+                    {selectedRecord.clarity?.reference_range || "N/A"})
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -508,4 +416,4 @@ const Cbc: React.FC = () => {
   );
 };
 
-export default Cbc;
+export default UrinalysisAdmin;

@@ -1,5 +1,7 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "@/firebaseConfig";
 import styles from "@/styles/Login.module.css";
 import { assets } from "@/components/assets";
 
@@ -15,6 +17,9 @@ const Login: React.FC = () => {
   });
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>("");
+
+  const navigate = useNavigate();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const { name, value } = e.target;
@@ -22,6 +27,8 @@ const Login: React.FC = () => {
       ...prev,
       [name]: value,
     }));
+    // Clear error when user starts typing
+    if (error) setError("");
   };
 
   const handleSubmit = async (
@@ -29,14 +36,46 @@ const Login: React.FC = () => {
   ): Promise<void> => {
     e.preventDefault();
     setIsLoading(true);
+    setError("");
 
-    // TODO: Implement actual login logic here
-    console.log("Login attempt:", formData);
+    try {
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        formData.email,
+        formData.password
+      );
 
-    // Simulate API call
-    setTimeout(() => {
+      // Successfully signed in
+      console.log("User signed in:", userCredential.user);
+
+      // Redirect to XRay page
+      navigate("/xrayadmin");
+    } catch (error: any) {
+      console.error("Login error:", error);
+
+      // Handle specific Firebase auth errors
+      switch (error.code) {
+        case "auth/user-not-found":
+          setError("No account found with this email address.");
+          break;
+        case "auth/wrong-password":
+          setError("Incorrect password. Please try again.");
+          break;
+        case "auth/invalid-email":
+          setError("Please enter a valid email address.");
+          break;
+        case "auth/too-many-requests":
+          setError("Too many failed attempts. Please try again later.");
+          break;
+        case "auth/network-request-failed":
+          setError("Network error. Please check your connection.");
+          break;
+        default:
+          setError("Login failed. Please try again.");
+      }
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -80,6 +119,8 @@ const Login: React.FC = () => {
 
           <div className={styles.loginForm}>
             <form onSubmit={handleSubmit} className={styles.form}>
+              {error && <div className={styles.errorMessage}>{error}</div>}
+
               <div className={styles.inputGroup}>
                 <label htmlFor="email" className={styles.label}>
                   Email Address
