@@ -150,9 +150,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
   const isRecordsActive = () => {
     const recordsPaths = [
       "/records",
-      "/records/cbc",
-      "/records/xray",
-      "/records/ecg",
+      "/records/cbcadmin",
+      "/records/xrayadmin",
+      "/records/ecgadmin",
+      "/record/urinalysisadmin",
     ];
     return recordsPaths.some((path) => location.pathname === path);
   };
@@ -202,22 +203,29 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
 
   const recordsSubItems = [
     {
-      path: "/cbc",
+      path: "/cbcadmin",
       icon: "🩸",
       label: "CBC",
       description: "Complete Blood Count",
     },
     {
-      path: "/xray",
+      path: "/xrayadmin",
       icon: "🩻",
       label: "X-Ray",
       description: "Radiographic Images",
     },
     {
-      path: "/ecg",
+      path: "/ecgadmin",
       icon: "💓",
       label: "ECG",
       description: "Electrocardiogram",
+    },
+
+    {
+      path: "/urinalysisadmin",
+      icon: "💓",
+      label: "Urinalysis",
+      description: "Clinical Microscopy",
     },
   ];
 
@@ -285,6 +293,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
                   className={`${styles.menuLink} ${
                     isActive(item.path) ? styles.active : ""
                   }`}
+                  data-tooltip={item.label}
                 >
                   <span className={styles.menuIcon}>{item.icon}</span>
                   {!isCollapsed && (
@@ -361,6 +370,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
                           className={`${styles.submenuLink} ${
                             isActive(item.path) ? styles.active : ""
                           }`}
+                          data-tooltip={item.label}
                           onClick={() => setIsRecordsDropdownOpen(false)}
                         >
                           <span className={styles.submenuIcon}>
