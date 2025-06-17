@@ -1,8 +1,14 @@
-import React, { useState, useEffect } from "react";
-import { collection, getDocs } from "firebase/firestore";
+import React, { useState } from "react";
+import { collection, getDocs, deleteDoc, doc } from "firebase/firestore";
 import { db } from "@/firebaseConfig";
 import styles from "@/styles/XRay.module.css";
 import Sidebar from "@/components/Sidebar";
+
+interface LabValue {
+  result: string;
+  unit: string;
+  reference_range: string;
+}
 
 interface UrinalysisRecord {
   id?: string;
@@ -10,26 +16,30 @@ interface UrinalysisRecord {
   patientName: string;
   mrn: string;
   gender: string;
-  age: number;
+  age: string;
   dob: string;
   collectionDateTime: string;
   resultValidated: string;
-  color: string;
-  clarity: string;
-  glucose: string;
-  bilirubin: string;
-  ketones: string;
-  specificGravity: string;
-  blood: string;
-  ph: string;
-  protein: string;
-  urobilinogen: string;
-  nitrite: string;
-  leukocyteEsterase: string;
-  rbc: string;
-  wbc: string;
-  epithelialCells: string;
-  bacteria: string;
+  orderNumber: string;
+  location: string;
+
+  color: LabValue;
+  clarity: LabValue;
+  glucose: LabValue;
+  bilirubin: LabValue;
+  ketones: LabValue;
+  specific_gravity: LabValue;
+  blood: LabValue;
+  ph: LabValue;
+  protein: LabValue;
+  urobilinogen: LabValue;
+  nitrite: LabValue;
+  leukocyte_esterase: LabValue;
+  rbc: LabValue;
+  wbc: LabValue;
+  epithelial_cells: LabValue;
+  bacteria: LabValue;
+
   fileName: string;
   uploadDate: string;
 }
@@ -48,6 +58,7 @@ const UrinalysisUser: React.FC = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
   };
 
+  // Load all records from Firestore
   const loadRecords = async () => {
     try {
       setLoading(true);
@@ -58,6 +69,7 @@ const UrinalysisUser: React.FC = () => {
         loadedRecords.push({ id: doc.id, ...doc.data() } as UrinalysisRecord);
       });
 
+      // Sort by upload date (newest first)
       loadedRecords.sort(
         (a, b) =>
           new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime()
@@ -71,13 +83,27 @@ const UrinalysisUser: React.FC = () => {
     }
   };
 
+  // Delete record
+  const handleDeleteRecord = async (recordId: string) => {
+    if (!window.confirm("Are you sure you want to delete this record?")) return;
+
+    try {
+      await deleteDoc(doc(db, "urinalysisRecords", recordId));
+      await loadRecords();
+    } catch (error) {
+      console.error("Error deleting record:", error);
+    }
+  };
+
+  // Filter records based on search
   const filteredRecords = records.filter(
     (record) =>
       record.patientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       record.uniqueId?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  useEffect(() => {
+  // Load records on component mount
+  React.useEffect(() => {
     loadRecords();
   }, []);
 
@@ -88,7 +114,7 @@ const UrinalysisUser: React.FC = () => {
         <div className={styles.header}>
           <h1 className={styles.pageTitle}>Urinalysis Records</h1>
           <p className={styles.pageDescription}>
-            View your urinalysis lab results and medical reports
+            View and manage Urinalysis lab results.
           </p>
         </div>
 
@@ -98,7 +124,7 @@ const UrinalysisUser: React.FC = () => {
             <div className={styles.searchContainer}>
               <input
                 type="text"
-                placeholder="Search by patient name or ID..."
+                placeholder="Search by patient name, ID, or company..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className={styles.searchInput}
@@ -115,7 +141,7 @@ const UrinalysisUser: React.FC = () => {
                   Patient Records ({filteredRecords.length})
                 </h2>
                 <p className={styles.recordsSubtitle}>
-                  View urinalysis test results
+                  View and manage Urinalysis results
                 </p>
               </div>
               <button
@@ -129,11 +155,10 @@ const UrinalysisUser: React.FC = () => {
 
             {filteredRecords.length === 0 ? (
               <div className={styles.noRecords}>
-                <div className={styles.noRecordsIcon}>🧪</div>
+                <div className={styles.noRecordsIcon}>📋</div>
                 <h3 className={styles.noRecordsTitle}>No Records Found</h3>
                 <p className={styles.noRecordsText}>
-                  No urinalysis records available or adjust your search
-                  criteria.
+                  No records available or adjust your search criteria.
                 </p>
               </div>
             ) : (
@@ -155,11 +180,21 @@ const UrinalysisUser: React.FC = () => {
                           }}
                           className={styles.viewButton}
                         >
-                          View Details
+                          View
+                        </button>
+                        <button
+                          onClick={() => handleDeleteRecord(record.id!)}
+                          className={styles.deleteButton}
+                        >
+                          Delete
                         </button>
                       </div>
                     </div>
                     <div className={styles.recordDetails}>
+                      <div className={styles.recordItem}>
+                        <span className={styles.recordLabel}>Age:</span>
+                        <span className={styles.recordValue}>{record.age}</span>
+                      </div>
                       <div className={styles.recordItem}>
                         <span className={styles.recordLabel}>Gender:</span>
                         <span className={styles.recordValue}>
@@ -167,13 +202,7 @@ const UrinalysisUser: React.FC = () => {
                         </span>
                       </div>
                       <div className={styles.recordItem}>
-                        <span className={styles.recordLabel}>Age:</span>
-                        <span className={styles.recordValue}>{record.age}</span>
-                      </div>
-                      <div className={styles.recordItem}>
-                        <span className={styles.recordLabel}>
-                          Collection Date:
-                        </span>
+                        <span className={styles.recordLabel}>Report Date:</span>
                         <span className={styles.recordValue}>
                           {record.collectionDateTime}
                         </span>
@@ -220,25 +249,25 @@ const UrinalysisUser: React.FC = () => {
                     </span>
                   </div>
                   <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Gender:</span>
-                    <span className={styles.infoValue}>
-                      {selectedRecord.gender}
-                    </span>
-                  </div>
-                  <div className={styles.infoItem}>
                     <span className={styles.infoLabel}>Age:</span>
                     <span className={styles.infoValue}>
                       {selectedRecord.age}
                     </span>
                   </div>
                   <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>MRN:</span>
+                    <span className={styles.infoLabel}>Gender:</span>
                     <span className={styles.infoValue}>
-                      {selectedRecord.mrn}
+                      {selectedRecord.gender}
                     </span>
                   </div>
                   <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Collection Date:</span>
+                    <span className={styles.infoLabel}>Unique ID:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.uniqueId}
+                    </span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>Report Date:</span>
                     <span className={styles.infoValue}>
                       {selectedRecord.collectionDateTime}
                     </span>
@@ -247,120 +276,25 @@ const UrinalysisUser: React.FC = () => {
               </div>
 
               <div className={styles.examSection}>
-                <h4 className={styles.sectionSubtitle}>Physical Examination</h4>
-                <div className={styles.infoGrid}>
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Color:</span>
-                    <span className={styles.infoValue}>
-                      {selectedRecord.color}
-                    </span>
-                  </div>
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Clarity:</span>
-                    <span className={styles.infoValue}>
-                      {selectedRecord.clarity}
-                    </span>
-                  </div>
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Specific Gravity:</span>
-                    <span className={styles.infoValue}>
-                      {selectedRecord.specificGravity}
-                    </span>
-                  </div>
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>pH:</span>
-                    <span className={styles.infoValue}>
-                      {selectedRecord.ph}
-                    </span>
-                  </div>
-                </div>
-              </div>
+                <h4 className={styles.sectionSubtitle}>Urinalysis, Routine</h4>
+                <h4 className={styles.sectionSubtitle}>PHYSICAL EXAMINATION</h4>
 
-              <div className={styles.interpretationSection}>
-                <h4 className={styles.sectionSubtitle}>Chemical Analysis</h4>
-                <div className={styles.infoGrid}>
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Glucose:</span>
-                    <span className={styles.infoValue}>
-                      {selectedRecord.glucose}
-                    </span>
-                  </div>
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Bilirubin:</span>
-                    <span className={styles.infoValue}>
-                      {selectedRecord.bilirubin}
-                    </span>
-                  </div>
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Ketones:</span>
-                    <span className={styles.infoValue}>
-                      {selectedRecord.ketones}
-                    </span>
-                  </div>
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Blood:</span>
-                    <span className={styles.infoValue}>
-                      {selectedRecord.blood}
-                    </span>
-                  </div>
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Protein:</span>
-                    <span className={styles.infoValue}>
-                      {selectedRecord.protein}
-                    </span>
-                  </div>
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Urobilinogen:</span>
-                    <span className={styles.infoValue}>
-                      {selectedRecord.urobilinogen}
-                    </span>
-                  </div>
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Nitrite:</span>
-                    <span className={styles.infoValue}>
-                      {selectedRecord.nitrite}
-                    </span>
-                  </div>
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>
-                      Leukocyte Esterase:
-                    </span>
-                    <span className={styles.infoValue}>
-                      {selectedRecord.leukocyteEsterase}
-                    </span>
-                  </div>
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>Color:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.color?.result || "N/A"}) (Unit:{" "}
+                    {selectedRecord.color?.unit || "N/A"}) (Range:{" "}
+                    {selectedRecord.color?.reference_range || "N/A"})
+                  </span>
                 </div>
-              </div>
 
-              <div className={styles.impressionSection}>
-                <h4 className={styles.sectionSubtitle}>
-                  Microscopic Examination
-                </h4>
-                <div className={styles.infoGrid}>
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>RBC:</span>
-                    <span className={styles.infoValue}>
-                      {selectedRecord.rbc}
-                    </span>
-                  </div>
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>WBC:</span>
-                    <span className={styles.infoValue}>
-                      {selectedRecord.wbc}
-                    </span>
-                  </div>
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Epithelial Cells:</span>
-                    <span className={styles.infoValue}>
-                      {selectedRecord.epithelialCells}
-                    </span>
-                  </div>
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Bacteria:</span>
-                    <span className={styles.infoValue}>
-                      {selectedRecord.bacteria}
-                    </span>
-                  </div>
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>Clarity:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.clarity?.result || "N/A"}) (Unit:{" "}
+                    {selectedRecord.clarity?.unit || "N/A"}) (Range:{" "}
+                    {selectedRecord.clarity?.reference_range || "N/A"})
+                  </span>
                 </div>
               </div>
             </div>
