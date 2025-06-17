@@ -187,3 +187,99 @@ def parse_cbc_data(text: str, filename: str) -> Dict:
         "uploadDate": datetime.utcnow().isoformat(),
         "uniqueId": filename.replace(".pdf", "")
     }
+
+@app.post("/extract-urinalysis")
+async def extract_urinalysis(file: UploadFile = File(...)) -> Dict:
+    content = await file.read()
+    pdf = fitz.open(stream=content, filetype="pdf")
+    text = "".join(page.get_text() for page in pdf)
+
+    return parse_urinalysis(text, file.filename)
+
+
+def extract_patient_info(text: str, label: str, fallback: str = "") -> str:
+    match = re.search(rf"{re.escape(label)}\s*[:\-]?\s*(.+)", text, re.IGNORECASE)
+    return match.group(1).strip() if match else fallback
+
+def extract_gender_age(text: str):
+    match = re.search(r"Gender\s*/\s*Age\s*[:\-]?\s*(\w+)\s*/\s*(.+)", text)
+    if match:
+        return match.group(1).strip(), match.group(2).strip()
+    return "", ""
+
+def extract_urinalysis_value(text: str, label: str, ref_pattern: str = r"[\d.\- ]+"):
+    """
+    Attempt to extract result, unit, and reference range for a given label.
+    """
+    # Look for: reference range, unit, result, then test name
+    pattern = rf"{ref_pattern}([^\dA-Z\n]+)?([\d.+\-]+)?{label}"
+    match = re.search(pattern, text, re.IGNORECASE)
+    if match:
+        ref = match.group(0).split(label)[0].strip()
+        unit = match.group(1).strip() if match.group(1) else ""
+        result = match.group(2).strip() if match.group(2) else ""
+        return {
+            "result": result,
+            "unit": unit,
+            "reference_range": ref,
+            "flag": ""
+        }
+    
+    # Fallback: just detect result like NEGATIVEGlucose or 6.0PH
+    alt_pattern = rf"([\w.+/-]+)\s*{label}"
+    match = re.search(alt_pattern, text)
+    if match:
+        return {
+            "result": match.group(1),
+            "unit": "",
+            "reference_range": "",
+            "flag": ""
+        }
+
+    return {
+        "result": "",
+        "unit": "",
+        "reference_range": "",
+        "flag": ""
+    }
+
+
+def parse_urinalysis(text: str, filename: str) -> Dict:
+    gender, age = extract_gender_age(text)
+
+    return {
+        # Patient Info
+        "patientName": extract_patient_info(text, "Name"),
+        "mrn": extract_patient_info(text, "MRN"),
+        "gender": gender,
+        "age": age,
+        "dob": extract_patient_info(text, "DOB"),
+        "collectionDateTime": extract_patient_info(text, "Collection Date/Time"),
+        "resultValidated": extract_patient_info(text, "Result Validated"),
+        "orderNumber": extract_patient_info(text, "Order Number"),
+        "location": extract_patient_info(text, "Location"),
+
+        # Urinalysis Fields (Match CBC format)
+        "color": extract_urinalysis_value(text, "Color"),
+        "clarity": extract_urinalysis_value(text, "Clarity"),
+        "glucose": extract_urinalysis_value(text, "Glucose"),
+        "bilirubin": extract_urinalysis_value(text, "Bilirubin"),
+        "ketones": extract_urinalysis_value(text, "Ketones"),
+        "specific_gravity": extract_urinalysis_value(text, "Specific Gravity"),
+        "blood": extract_urinalysis_value(text, "Blood"),
+        "ph": extract_urinalysis_value(text, "PH"),
+        "protein": extract_urinalysis_value(text, "Protein"),
+        "urobilinogen": extract_urinalysis_value(text, "Urobilinogen"),
+        "nitrite": extract_urinalysis_value(text, "Nitrite"),
+        "leukocyte_esterase": extract_urinalysis_value(text, "Leukocyte Esterase"),
+        "rbc": extract_urinalysis_value(text, "RBC", r"\d+\.\d+ - \d+\.\d+/hpf"),
+        "wbc": extract_urinalysis_value(text, "WBC", r"\d+\.\d+ - \d+\.\d+/hpf"),
+        "epithelial_cells": extract_urinalysis_value(text, "Epithelial Cells", r"/hpf[\d. ]*"),
+        "bacteria": extract_urinalysis_value(text, "Bacteria", r"/hpf[\d. ]*"),
+
+        # Meta
+        "fileName": filename,
+        "uploadDate": datetime.utcnow().isoformat(),
+        "uniqueId": filename.replace(".pdf", "")
+    }
+

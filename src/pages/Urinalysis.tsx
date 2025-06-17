@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import {
   collection,
   addDoc,
@@ -12,32 +12,43 @@ import { db } from "@/firebaseConfig";
 import styles from "@/styles/XRay.module.css";
 import Sidebar from "@/components/Sidebar";
 
+interface LabValue {
+  result: string;
+  unit: string;
+  reference_range: string;
+}
+
 interface UrinalysisRecord {
   id?: string;
   uniqueId: string;
   patientName: string;
   mrn: string;
   gender: string;
-  age: number;
+  age: string;
   dob: string;
   collectionDateTime: string;
   resultValidated: string;
-  color: string;
-  clarity: string;
-  glucose: string;
-  bilirubin: string;
-  ketones: string;
-  specificGravity: string;
-  blood: string;
-  ph: string;
-  protein: string;
-  urobilinogen: string;
-  nitrite: string;
-  leukocyteEsterase: string;
-  rbc: string;
-  wbc: string;
-  epithelialCells: string;
-  bacteria: string;
+  orderNumber: string,
+  location: string,
+
+  
+  color: LabValue;
+  clarity: LabValue;
+  glucose: LabValue;
+  bilirubin: LabValue;
+  ketones: LabValue;
+  specific_gravity: LabValue;
+  blood: LabValue;
+  ph: LabValue;
+  protein: LabValue;
+  urobilinogen: LabValue;
+  nitrite: LabValue;
+  leukocyte_esterase: LabValue;
+  rbc: LabValue;
+  wbc: LabValue;
+  epithelial_cells: LabValue;
+  bacteria: LabValue;
+  
   fileName: string;
   uploadDate: string;
 }
@@ -52,65 +63,76 @@ const Urinalysis: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+
   const handleSidebarToggle = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
   };
 
+
+  // Handle file upload
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files) return;
+  const files = event.target.files;
+  if (!files) return;
 
-    setLoading(true);
-    setUploadProgress("Starting upload...");
+  setLoading(true);
+  setUploadProgress("Starting upload...");
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
 
-      if (file.type !== "application/pdf") {
-        alert(`File ${file.name} is not a PDF file`);
+    if (file.type !== "application/pdf") {
+      alert(`File ${file.name} is not a PDF file`);
+      continue;
+    }
+
+    setUploadProgress(`Processing ${file.name}... (${i + 1}/${files.length})`);
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("http://localhost:8000/extract-urinalysis", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      console.log("Parsed Data from backend:", data);
+
+
+      if (data.error) {
+        console.error(`Error in ${file.name}:`, data.error);
         continue;
       }
 
-      setUploadProgress(`Processing ${file.name}... (${i + 1}/${files.length})`);
+      // Check for duplicates in Firestore
+      const q = query(
+        collection(db, "urinalysisRecords"),
+        where("uniqueId", "==", data.uniqueId)
+      );
+      const existing = await getDocs(q);
 
-      const formData = new FormData();
-      formData.append("file", file);
-
-      try {
-        const res = await fetch("http://localhost:8000/extract-urinalysis", {
-          method: "POST",
-          body: formData,
-        });
-
-        const data = await res.json();
-        if (data.error) {
-          console.error(`Error in ${file.name}:`, data.error);
-          continue;
-        }
-
-        const q = query(
-          collection(db, "urinalysisRecords"),
-          where("uniqueId", "==", data.uniqueId)
-        );
-        const existing = await getDocs(q);
-
-        if (!existing.empty) {
-          console.log(`Record already exists for ${data.patientName}`);
-          continue;
-        }
-
-        await addDoc(collection(db, "urinalysisRecords"), data);
-        setUploadProgress(`Saved ${data.patientName}`);
-      } catch (err) {
-        console.error("Upload error:", err);
+      if (!existing.empty) {
+        console.log(`Record already exists for ${data.patientName}`);
+        continue;
       }
+
+      // Save to Firestore
+      await addDoc(collection(db, "urinalysisRecords"), data);
+      setUploadProgress(`Saved ${data.patientName}`);
+    } catch (err) {
+      console.error("Upload error:", err);
     }
+  }
 
-    await loadRecords();
-    setUploadProgress("Upload finished.");
-    setLoading(false);
-  };
+  await loadRecords();
+  setUploadProgress("Upload finished.");
+  setLoading(false);
+};
 
+
+  // Load all records from Firestore
   const loadRecords = async () => {
     try {
       setLoading(true);
@@ -121,8 +143,10 @@ const Urinalysis: React.FC = () => {
         loadedRecords.push({ id: doc.id, ...doc.data() } as UrinalysisRecord);
       });
 
+      // Sort by upload date (newest first)
       loadedRecords.sort(
-        (a, b) => new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime()
+        (a, b) =>
+          new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime()
       );
 
       setRecords(loadedRecords);
@@ -133,6 +157,7 @@ const Urinalysis: React.FC = () => {
     }
   };
 
+  // Delete record
   const handleDeleteRecord = async (recordId: string) => {
     if (!window.confirm("Are you sure you want to delete this record?")) return;
 
@@ -144,12 +169,15 @@ const Urinalysis: React.FC = () => {
     }
   };
 
-  const filteredRecords = records.filter((record) =>
-    record.patientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    record.uniqueId?.toLowerCase().includes(searchTerm.toLowerCase())
+  // Filter records based on search
+  const filteredRecords = records.filter(
+    (record) =>
+      record.patientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.uniqueId?.toLowerCase().includes(searchTerm.toLowerCase()) 
   );
 
-  useEffect(() => {
+  // Load records on component mount
+  React.useEffect(() => {
     loadRecords();
   }, []);
 
@@ -159,14 +187,19 @@ const Urinalysis: React.FC = () => {
       <div className={styles.contentWrapper}>
         <div className={styles.header}>
           <h1 className={styles.pageTitle}>Urinalysis Records Management</h1>
-          <p className={styles.pageDescription}>Upload and manage urinalysis lab results.</p>
+          <p className={styles.pageDescription}>
+            Upload and manage Urinalysis lab results.
+          </p>
         </div>
 
         <main className={styles.mainContent}>
+          {/* Upload Section */}
           <section className={styles.uploadSection}>
             <div className={styles.sectionHeader}>
               <h2 className={styles.sectionTitle}>Upload Urinalysis PDFs</h2>
-              <p className={styles.sectionDescription}>Select PDF files containing urinalysis results</p>
+              <p className={styles.sectionDescription}>
+                Select PDF files containing Urinalysis Results
+              </p>
             </div>
             <div className={styles.uploadCard}>
               <div className={styles.uploadArea}>
@@ -181,19 +214,26 @@ const Urinalysis: React.FC = () => {
                   disabled={loading}
                 />
                 <div className={styles.uploadText}>
-                  <p className={styles.uploadMainText}>Choose PDF files or drag and drop</p>
-                  <p className={styles.uploadSubText}>Multiple PDF files supported</p>
+                  <p className={styles.uploadMainText}>
+                    Choose PDF files or drag and drop
+                  </p>
+                  <p className={styles.uploadSubText}>
+                    Multiple PDF files supported
+                  </p>
                 </div>
               </div>
-              {uploadProgress && <div className={styles.progressMessage}>{uploadProgress}</div>}
+              {uploadProgress && (
+                <div className={styles.progressMessage}>{uploadProgress}</div>
+              )}
             </div>
           </section>
 
+          {/* Search Section */}
           <section className={styles.searchSection}>
             <div className={styles.searchContainer}>
               <input
                 type="text"
-                placeholder="Search by patient name or ID..."
+                placeholder="Search by patient name, ID, or company..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className={styles.searchInput}
@@ -202,9 +242,17 @@ const Urinalysis: React.FC = () => {
             </div>
           </section>
 
+          {/* Records Section */}
           <section className={styles.recordsSection}>
             <div className={styles.recordsHeader}>
-              <h2 className={styles.sectionTitle}>Patient Records ({filteredRecords.length})</h2>
+              <div className={styles.recordsTitle}>
+                <h2 className={styles.sectionTitle}>
+                  Patient Records ({filteredRecords.length})
+                </h2>
+                <p className={styles.recordsSubtitle}>
+                  View and manage Urinalysis results
+                </p>
+              </div>
               <button
                 onClick={loadRecords}
                 className={styles.refreshButton}
@@ -215,14 +263,23 @@ const Urinalysis: React.FC = () => {
             </div>
 
             {filteredRecords.length === 0 ? (
-              <div className={styles.noRecords}>No records found.</div>
+              <div className={styles.noRecords}>
+                <div className={styles.noRecordsIcon}>📋</div>
+                <h3 className={styles.noRecordsTitle}>No Records Found</h3>
+                <p className={styles.noRecordsText}>
+                  Upload some PDF files to get started or adjust your search
+                  criteria.
+                </p>
+              </div>
             ) : (
               <div className={styles.recordsGrid}>
                 {filteredRecords.map((record) => (
                   <div key={record.id} className={styles.recordCard}>
                     <div className={styles.recordHeader}>
                       <div className={styles.patientInfo}>
-                        <h3 className={styles.patientName}>{record.patientName}</h3>
+                        <h3 className={styles.patientName}>
+                          {record.patientName}
+                        </h3>
                         <p className={styles.uniqueId}>{record.uniqueId}</p>
                       </div>
                       <div className={styles.recordActions}>
@@ -244,9 +301,22 @@ const Urinalysis: React.FC = () => {
                       </div>
                     </div>
                     <div className={styles.recordDetails}>
-                      <p><strong>Gender:</strong> {record.gender}</p>
-                      <p><strong>Age:</strong> {record.age}</p>
-                      <p><strong>Report Date:</strong> {record.collectionDateTime}</p>
+                      <div className={styles.recordItem}>
+                        <span className={styles.recordLabel}>Age:</span>
+                        <span className={styles.recordValue}>{record.age}</span>
+                      </div>
+                      <div className={styles.recordItem}>
+                        <span className={styles.recordLabel}>Gender:</span>
+                        <span className={styles.recordValue}>
+                          {record.gender}
+                        </span>
+                      </div>
+                      <div className={styles.recordItem}>
+                        <span className={styles.recordLabel}>Report Date:</span>
+                        <span className={styles.recordValue}>
+                          {record.collectionDateTime}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -256,34 +326,83 @@ const Urinalysis: React.FC = () => {
         </main>
       </div>
 
+      {/* Modal for viewing full record */}
       {showModal && selectedRecord && (
-        <div className={styles.modalOverlay} onClick={() => setShowModal(false)}>
+        <div
+          className={styles.modalOverlay}
+          onClick={() => setShowModal(false)}
+        >
           <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
             <div className={styles.modalHeader}>
               <h3 className={styles.modalTitle}>Urinalysis Result Details</h3>
-              <button onClick={() => setShowModal(false)} className={styles.closeButton}>×</button>
+              <button
+                onClick={() => setShowModal(false)}
+                className={styles.closeButton}
+              >
+                ×
+              </button>
             </div>
             <div className={styles.modalContent}>
-              <p><strong>Name:</strong> {selectedRecord.patientName}</p>
-              <p><strong>DOB:</strong> {selectedRecord.dob}</p>
-              <p><strong>Gender:</strong> {selectedRecord.gender}</p>
-              <p><strong>Age:</strong> {selectedRecord.age}</p>
-              <p><strong>Color:</strong> {selectedRecord.color}</p>
-              <p><strong>Clarity:</strong> {selectedRecord.clarity}</p>
-              <p><strong>Glucose:</strong> {selectedRecord.glucose}</p>
-              <p><strong>Bilirubin:</strong> {selectedRecord.bilirubin}</p>
-              <p><strong>Ketones:</strong> {selectedRecord.ketones}</p>
-              <p><strong>Specific Gravity:</strong> {selectedRecord.specificGravity}</p>
-              <p><strong>Blood:</strong> {selectedRecord.blood}</p>
-              <p><strong>pH:</strong> {selectedRecord.ph}</p>
-              <p><strong>Protein:</strong> {selectedRecord.protein}</p>
-              <p><strong>Urobilinogen:</strong> {selectedRecord.urobilinogen}</p>
-              <p><strong>Nitrite:</strong> {selectedRecord.nitrite}</p>
-              <p><strong>Leukocyte Esterase:</strong> {selectedRecord.leukocyteEsterase}</p>
-              <p><strong>RBC:</strong> {selectedRecord.rbc}</p>
-              <p><strong>WBC:</strong> {selectedRecord.wbc}</p>
-              <p><strong>Epithelial Cells:</strong> {selectedRecord.epithelialCells}</p>
-              <p><strong>Bacteria:</strong> {selectedRecord.bacteria}</p>
+              <div className={styles.patientSection}>
+                <h4 className={styles.sectionSubtitle}>Patient Information</h4>
+                <div className={styles.infoGrid}>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>Name:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.patientName}
+                    </span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>Date of Birth:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.dob}
+                    </span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>Age:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.age}
+                    </span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>Gender:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.gender}
+                    </span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>Unique ID:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.uniqueId}
+                    </span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>Report Date:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.collectionDateTime}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className={styles.examSection}>
+                <h4 className={styles.sectionSubtitle}>Urinalysis, Routine</h4>
+                <h4 className={styles.sectionSubtitle}>PHYSICAL EXAMINATION</h4>
+                
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>Color:</span>
+                    <span className={styles.infoValue}>
+                      (Result: {selectedRecord.color?.result || "N/A"}) (Unit: {selectedRecord.color?.unit || "N/A"}) (Range: {selectedRecord.color?.reference_range || "N/A"})
+                    </span>                    
+                  </div>
+
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>Clarity:</span>
+                    <span className={styles.infoValue}>
+                      (Result: {selectedRecord.clarity?.result || "N/A"}) (Unit: {selectedRecord.clarity?.unit || "N/A"}) (Range: {selectedRecord.clarity?.reference_range || "N/A"})
+                    </span>                    
+                  </div>
+              </div>
             </div>
           </div>
         </div>
