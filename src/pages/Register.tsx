@@ -4,7 +4,6 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import {
   doc,
   setDoc,
-  getDoc,
   serverTimestamp,
   query,
   where,
