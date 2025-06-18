@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { collection, getDocs, deleteDoc, doc } from "firebase/firestore";
+import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/firebaseConfig";
 import styles from "@/styles/XRay.module.css";
 import Sidebar from "@/components/Sidebar";
@@ -39,6 +39,8 @@ interface UrinalysisRecord {
   wbc: LabValue;
   epithelial_cells: LabValue;
   bacteria: LabValue;
+  hyaline_cast: LabValue;
+  remarks: LabValue;
 
   fileName: string;
   uploadDate: string;
@@ -83,18 +85,6 @@ const UrinalysisUser: React.FC = () => {
     }
   };
 
-  // Delete record
-  const handleDeleteRecord = async (recordId: string) => {
-    if (!window.confirm("Are you sure you want to delete this record?")) return;
-
-    try {
-      await deleteDoc(doc(db, "urinalysisRecords", recordId));
-      await loadRecords();
-    } catch (error) {
-      console.error("Error deleting record:", error);
-    }
-  };
-
   // Filter records based on search
   const filteredRecords = records.filter(
     (record) =>
@@ -114,7 +104,7 @@ const UrinalysisUser: React.FC = () => {
         <div className={styles.header}>
           <h1 className={styles.pageTitle}>Urinalysis Records</h1>
           <p className={styles.pageDescription}>
-            View and manage Urinalysis lab results.
+            View your Urinalysis lab results.
           </p>
         </div>
 
@@ -124,7 +114,7 @@ const UrinalysisUser: React.FC = () => {
             <div className={styles.searchContainer}>
               <input
                 type="text"
-                placeholder="Search by patient name, ID, or company..."
+                placeholder="Search by patient name or ID..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className={styles.searchInput}
@@ -141,7 +131,7 @@ const UrinalysisUser: React.FC = () => {
                   Patient Records ({filteredRecords.length})
                 </h2>
                 <p className={styles.recordsSubtitle}>
-                  View and manage Urinalysis results
+                  View Urinalysis results
                 </p>
               </div>
               <button
@@ -181,12 +171,6 @@ const UrinalysisUser: React.FC = () => {
                           className={styles.viewButton}
                         >
                           View
-                        </button>
-                        <button
-                          onClick={() => handleDeleteRecord(record.id!)}
-                          className={styles.deleteButton}
-                        >
-                          Delete
                         </button>
                       </div>
                     </div>
@@ -294,6 +278,159 @@ const UrinalysisUser: React.FC = () => {
                     (Result: {selectedRecord.clarity?.result || "N/A"}) (Unit:{" "}
                     {selectedRecord.clarity?.unit || "N/A"}) (Range:{" "}
                     {selectedRecord.clarity?.reference_range || "N/A"})
+                  </span>
+                </div>
+
+                <h4 className={styles.sectionSubtitle}>CHEMICAL ANALYSIS</h4>
+
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>Glucose:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.glucose?.result || "N/A"}) (Unit:{" "}
+                    {selectedRecord.glucose?.unit || "N/A"}) (Range:{" "}
+                    {selectedRecord.glucose?.reference_range || "N/A"})
+                  </span>
+                </div>
+
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>Bilirubin:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.bilirubin?.result || "N/A"}) (Unit:{" "}
+                    {selectedRecord.bilirubin?.unit || "N/A"}) (Range:{" "}
+                    {selectedRecord.bilirubin?.reference_range || "N/A"})
+                  </span>
+                </div>
+
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>Ketones:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.ketones?.result || "N/A"}) (Unit:{" "}
+                    {selectedRecord.ketones?.unit || "N/A"}) (Range:{" "}
+                    {selectedRecord.ketones?.reference_range || "N/A"})
+                  </span>
+                </div>
+
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>Specific Gravity:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.specific_gravity?.result || "N/A"})
+                    (Unit: {selectedRecord.specific_gravity?.unit || "N/A"})
+                    (Range:{" "}
+                    {selectedRecord.specific_gravity?.reference_range || "N/A"})
+                  </span>
+                </div>
+
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>Blood:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.blood?.result || "N/A"}) (Unit:{" "}
+                    {selectedRecord.blood?.unit || "N/A"}) (Range:{" "}
+                    {selectedRecord.blood?.reference_range || "N/A"})
+                  </span>
+                </div>
+
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>PH:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.ph?.result || "N/A"}) (Unit:{" "}
+                    {selectedRecord.ph?.unit || "N/A"}) (Range:{" "}
+                    {selectedRecord.ph?.reference_range || "N/A"})
+                  </span>
+                </div>
+
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>Protein:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.protein?.result || "N/A"}) (Unit:{" "}
+                    {selectedRecord.protein?.unit || "N/A"}) (Range:{" "}
+                    {selectedRecord.protein?.reference_range || "N/A"})
+                  </span>
+                </div>
+
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>Urobilinogen:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.urobilinogen?.result || "N/A"})
+                    (Unit: {selectedRecord.urobilinogen?.unit || "N/A"}) (Range:{" "}
+                    {selectedRecord.urobilinogen?.reference_range || "N/A"})
+                  </span>
+                </div>
+
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>Nitrite:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.nitrite?.result || "N/A"}) (Unit:{" "}
+                    {selectedRecord.nitrite?.unit || "N/A"}) (Range:{" "}
+                    {selectedRecord.nitrite?.reference_range || "N/A"})
+                  </span>
+                </div>
+
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>Leukocyte Esterase:</span>
+                  <span className={styles.infoValue}>
+                    (Result:{" "}
+                    {selectedRecord.leukocyte_esterase?.result || "N/A"}) (Unit:{" "}
+                    {selectedRecord.leukocyte_esterase?.unit || "N/A"}) (Range:{" "}
+                    {selectedRecord.leukocyte_esterase?.reference_range ||
+                      "N/A"}
+                    )
+                  </span>
+                </div>
+
+                <h4 className={styles.sectionSubtitle}>URINE FLOW CYTOMETRY</h4>
+
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>RBC:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.rbc?.result || "N/A"}) (Unit:{" "}
+                    {selectedRecord.rbc?.unit || "N/A"}) (Range:{" "}
+                    {selectedRecord.rbc?.reference_range || "N/A"})
+                  </span>
+                </div>
+
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>WBC:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.wbc?.result || "N/A"}) (Unit:{" "}
+                    {selectedRecord.wbc?.unit || "N/A"}) (Range:{" "}
+                    {selectedRecord.wbc?.reference_range || "N/A"})
+                  </span>
+                </div>
+
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>Epithelial Cells:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.epithelial_cells?.result || "N/A"})
+                    (Unit: {selectedRecord.epithelial_cells?.unit || "N/A"})
+                    (Range:{" "}
+                    {selectedRecord.epithelial_cells?.reference_range || "N/A"})
+                  </span>
+                </div>
+
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>Bacteria:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.bacteria?.result || "N/A"}) (Unit:{" "}
+                    {selectedRecord.bacteria?.unit || "N/A"}) (Range:{" "}
+                    {selectedRecord.bacteria?.reference_range || "N/A"})
+                  </span>
+                </div>
+
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>Hyaline Cast:</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.hyaline_cast?.result || "N/A"})
+                    (Unit: {selectedRecord.hyaline_cast?.unit || "N/A"}) (Range:{" "}
+                    {selectedRecord.hyaline_cast?.reference_range || "N/A"})
+                  </span>
+                </div>
+
+                <div className={styles.infoItem}>
+                  <span className={styles.infoLabel}>Remarks</span>
+                  <span className={styles.infoValue}>
+                    (Result: {selectedRecord.remarks?.result || "N/A"}) (Unit:{" "}
+                    {selectedRecord.remarks?.unit || "N/A"}) (Range:{" "}
+                    {selectedRecord.remarks?.reference_range || "N/A"})
                   </span>
                 </div>
               </div>
