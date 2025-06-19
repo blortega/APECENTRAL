@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { collection, getDocs, deleteDoc, doc } from "firebase/firestore";
-import { db } from "@/firebaseConfig";
+import { collection, getDocs, doc, getDoc } from "firebase/firestore";
+import { useAuthState } from "react-firebase-hooks/auth";
+import { auth, db } from "@/firebaseConfig";
 import styles from "@/styles/XRay.module.css";
 import Sidebar from "@/components/Sidebar";
 
@@ -45,27 +46,89 @@ interface CBCRecord {
   uploadDate: string;
 }
 
+interface UserData {
+  firstname: string;
+  lastname: string;
+  role: string;
+  employeeId: string;
+}
+
 const CbcUser: React.FC = () => {
+  const [user, loading, error] = useAuthState(auth);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [records, setRecords] = useState<CBCRecord[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loadingRecords, setLoadingRecords] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRecord, setSelectedRecord] = useState<CBCRecord | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [userData, setUserData] = useState<UserData | null>(null);
 
   const handleSidebarToggle = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
   };
 
-  // Load all records from Firestore
-  const loadRecords = async () => {
+  // Get current user's data from Firestore
+  const getCurrentUserData = async (
+    userId: string
+  ): Promise<UserData | null> => {
     try {
-      setLoading(true);
+      const userDoc = await getDoc(doc(db, "users", userId));
+      if (userDoc.exists()) {
+        const data = userDoc.data() as UserData;
+        return data;
+      }
+      return null;
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+      return null;
+    }
+  };
+
+  // Load records filtered by current user
+  const loadRecords = async () => {
+    if (!user) {
+      console.error("No authenticated user");
+      return;
+    }
+
+    try {
+      setLoadingRecords(true);
+
+      // Get current user's data first
+      const currentUserData = await getCurrentUserData(user.uid);
+      if (!currentUserData) {
+        console.error("Could not fetch user data");
+        return;
+      }
+
+      setUserData(currentUserData);
+
+      // Construct the full name to match against patient name
+      // Format: "FIRSTNAME LASTNAME" (assuming middle initial might be present)
+      const userFullName =
+        `${currentUserData.firstname} ${currentUserData.lastname}`.toUpperCase();
+
+      // Get all CBC records
       const querySnapshot = await getDocs(collection(db, "cbcRecords"));
       const loadedRecords: CBCRecord[] = [];
 
       querySnapshot.forEach((doc) => {
-        loadedRecords.push({ id: doc.id, ...doc.data() } as CBCRecord);
+        const recordData = { id: doc.id, ...doc.data() } as CBCRecord;
+
+        // Only include records that belong to the current user
+        // Match by patient name (case-insensitive)
+        // Handle cases where middle name/initial might be present
+        const patientName = recordData.patientName?.toUpperCase() || "";
+        const firstName = currentUserData.firstname.toUpperCase();
+        const lastName = currentUserData.lastname.toUpperCase();
+
+        // Check if patient name contains both first and last name
+        const matchesUser =
+          patientName.includes(firstName) && patientName.includes(lastName);
+
+        if (matchesUser) {
+          loadedRecords.push(recordData);
+        }
       });
 
       // Sort by upload date (newest first)
@@ -78,42 +141,60 @@ const CbcUser: React.FC = () => {
     } catch (error) {
       console.error("Error loading records:", error);
     } finally {
-      setLoading(false);
+      setLoadingRecords(false);
     }
   };
 
-  // Delete record
-  const handleDeleteRecord = async (recordId: string) => {
-    if (!window.confirm("Are you sure you want to delete this record?")) return;
-
-    try {
-      await deleteDoc(doc(db, "cbcRecords", recordId));
-      await loadRecords();
-    } catch (error) {
-      console.error("Error deleting record:", error);
-    }
-  };
-
-  // Filter records based on search
+  // Filter records based on search (only within user's own records)
   const filteredRecords = records.filter(
     (record) =>
       record.patientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.uniqueId?.toLowerCase().includes(searchTerm.toLowerCase())
+      record.uniqueId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.mrn?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Load records on component mount
+  // Load records when user is authenticated and component mounts
   React.useEffect(() => {
-    loadRecords();
-  }, []);
+    if (user && !loading) {
+      loadRecords();
+    }
+  }, [user, loading]);
+
+  // Show loading state while authenticating
+  if (loading) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.loadingContainer}>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error or redirect if not authenticated
+  if (error || !user) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.errorContainer}>
+          <p>Please log in to view your CBC records.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.page}>
       <Sidebar onToggle={handleSidebarToggle} />
       <div className={styles.contentWrapper}>
         <div className={styles.header}>
-          <h1 className={styles.pageTitle}>CBC Records</h1>
+          <h1 className={styles.pageTitle}>My CBC Records</h1>
           <p className={styles.pageDescription}>
-            View Complete Blood Count (CBC) lab results.
+            {userData && (
+              <>
+                View your Complete Blood Count (CBC) lab results,{" "}
+                {userData.firstname}
+              </>
+            )}
           </p>
         </div>
 
@@ -123,7 +204,7 @@ const CbcUser: React.FC = () => {
             <div className={styles.searchContainer}>
               <input
                 type="text"
-                placeholder="Search by patient name, ID, or company..."
+                placeholder="Search your records by name, ID, or MRN..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className={styles.searchInput}
@@ -137,25 +218,33 @@ const CbcUser: React.FC = () => {
             <div className={styles.recordsHeader}>
               <div className={styles.recordsTitle}>
                 <h2 className={styles.sectionTitle}>
-                  Patient Records ({filteredRecords.length})
+                  Your Records ({filteredRecords.length})
                 </h2>
-                <p className={styles.recordsSubtitle}>View CBC lab results</p>
+                <p className={styles.recordsSubtitle}>
+                  Your personal CBC lab results
+                </p>
               </div>
               <button
                 onClick={loadRecords}
                 className={styles.refreshButton}
-                disabled={loading}
+                disabled={loadingRecords}
               >
-                {loading ? "Loading..." : "Refresh"}
+                {loadingRecords ? "Loading..." : "Refresh"}
               </button>
             </div>
 
             {filteredRecords.length === 0 ? (
               <div className={styles.noRecords}>
                 <div className={styles.noRecordsIcon}>📋</div>
-                <h3 className={styles.noRecordsTitle}>No Records Found</h3>
+                <h3 className={styles.noRecordsTitle}>
+                  {records.length === 0
+                    ? "No Records Found"
+                    : "No Matching Records"}
+                </h3>
                 <p className={styles.noRecordsText}>
-                  No CBC records available or adjust your search criteria.
+                  {records.length === 0
+                    ? "You don't have any CBC records yet."
+                    : "No records match your search criteria."}
                 </p>
               </div>
             ) : (
@@ -177,13 +266,7 @@ const CbcUser: React.FC = () => {
                           }}
                           className={styles.viewButton}
                         >
-                          View
-                        </button>
-                        <button
-                          onClick={() => handleDeleteRecord(record.id!)}
-                          className={styles.deleteButton}
-                        >
-                          Delete
+                          View Details
                         </button>
                       </div>
                     </div>
@@ -264,6 +347,12 @@ const CbcUser: React.FC = () => {
                     </span>
                   </div>
                   <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>MRN:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.mrn}
+                    </span>
+                  </div>
+                  <div className={styles.infoItem}>
                     <span className={styles.infoLabel}>Report Date:</span>
                     <span className={styles.infoValue}>
                       {selectedRecord.collectionDateTime}
@@ -278,17 +367,16 @@ const CbcUser: React.FC = () => {
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>RBC Count:</span>
                   <span className={styles.infoValue}>
-                    (Result: {selectedRecord.rbc.result}) (Unit:{" "}
-                    {selectedRecord.rbc.unit}) (Range:{" "}
-                    {selectedRecord.rbc.reference_range})
+                    {selectedRecord.rbc.result} {selectedRecord.rbc.unit}{" "}
+                    (Range: {selectedRecord.rbc.reference_range})
                   </span>
                 </div>
 
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>Hematocrit:</span>
                   <span className={styles.infoValue}>
-                    (Result: {selectedRecord.hematocrit.result}) (Unit:{" "}
-                    {selectedRecord.hematocrit.unit}) (Range:{" "}
+                    {selectedRecord.hematocrit.result}{" "}
+                    {selectedRecord.hematocrit.unit} (Range:{" "}
                     {selectedRecord.hematocrit.reference_range})
                   </span>
                 </div>
@@ -296,8 +384,8 @@ const CbcUser: React.FC = () => {
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>Hemoglobin:</span>
                   <span className={styles.infoValue}>
-                    (Result: {selectedRecord.hemoglobin.result}) (Unit:{" "}
-                    {selectedRecord.hemoglobin.unit}) (Range:{" "}
+                    {selectedRecord.hemoglobin.result}{" "}
+                    {selectedRecord.hemoglobin.unit} (Range:{" "}
                     {selectedRecord.hemoglobin.reference_range})
                   </span>
                 </div>
@@ -305,44 +393,40 @@ const CbcUser: React.FC = () => {
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>MCV:</span>
                   <span className={styles.infoValue}>
-                    (Result: {selectedRecord.mcv.result}) (Unit:{" "}
-                    {selectedRecord.mcv.unit}) (Range:{" "}
-                    {selectedRecord.mcv.reference_range})
+                    {selectedRecord.mcv.result} {selectedRecord.mcv.unit}{" "}
+                    (Range: {selectedRecord.mcv.reference_range})
                   </span>
                 </div>
 
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>MCH:</span>
                   <span className={styles.infoValue}>
-                    (Result: {selectedRecord.mch.result}) (Unit:{" "}
-                    {selectedRecord.mch.unit}) (Range:{" "}
-                    {selectedRecord.mch.reference_range})
+                    {selectedRecord.mch.result} {selectedRecord.mch.unit}{" "}
+                    (Range: {selectedRecord.mch.reference_range})
                   </span>
                 </div>
 
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>MCHC:</span>
                   <span className={styles.infoValue}>
-                    (Result: {selectedRecord.mchc.result}) (Unit:{" "}
-                    {selectedRecord.mchc.unit}) (Range:{" "}
-                    {selectedRecord.mchc.reference_range})
+                    {selectedRecord.mchc.result} {selectedRecord.mchc.unit}{" "}
+                    (Range: {selectedRecord.mchc.reference_range})
                   </span>
                 </div>
 
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>RDW:</span>
                   <span className={styles.infoValue}>
-                    (Result: {selectedRecord.rdw.result}) (Unit:{" "}
-                    {selectedRecord.rdw.unit}) (Range:{" "}
-                    {selectedRecord.rdw.reference_range})
+                    {selectedRecord.rdw.result} {selectedRecord.rdw.unit}{" "}
+                    (Range: {selectedRecord.rdw.reference_range})
                   </span>
                 </div>
 
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>Platelet Count:</span>
                   <span className={styles.infoValue}>
-                    (Result: {selectedRecord.platelets.result}) (Unit:{" "}
-                    {selectedRecord.platelets.unit}) (Range:{" "}
+                    {selectedRecord.platelets.result}{" "}
+                    {selectedRecord.platelets.unit} (Range:{" "}
                     {selectedRecord.platelets.reference_range})
                   </span>
                 </div>
@@ -350,18 +434,16 @@ const CbcUser: React.FC = () => {
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>MPV:</span>
                   <span className={styles.infoValue}>
-                    (Result: {selectedRecord.mpv.result}) (Unit:{" "}
-                    {selectedRecord.mpv.unit}) (Range:{" "}
-                    {selectedRecord.mpv.reference_range})
+                    {selectedRecord.mpv.result} {selectedRecord.mpv.unit}{" "}
+                    (Range: {selectedRecord.mpv.reference_range})
                   </span>
                 </div>
 
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>WBC Count:</span>
                   <span className={styles.infoValue}>
-                    (Result: {selectedRecord.wbc.result}) (Unit:{" "}
-                    {selectedRecord.wbc.unit}) (Range:{" "}
-                    {selectedRecord.wbc.reference_range})
+                    {selectedRecord.wbc.result} {selectedRecord.wbc.unit}{" "}
+                    (Range: {selectedRecord.wbc.reference_range})
                   </span>
                 </div>
 
@@ -371,8 +453,8 @@ const CbcUser: React.FC = () => {
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>Neutrophil:</span>
                   <span className={styles.infoValue}>
-                    (Result: {selectedRecord.neutrophils_percent.result}) (Unit:{" "}
-                    {selectedRecord.neutrophils_percent.unit}) (Range:{" "}
+                    {selectedRecord.neutrophils_percent.result}{" "}
+                    {selectedRecord.neutrophils_percent.unit} (Range:{" "}
                     {selectedRecord.neutrophils_percent.reference_range})
                   </span>
                 </div>
@@ -380,8 +462,8 @@ const CbcUser: React.FC = () => {
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>Lymphocytes:</span>
                   <span className={styles.infoValue}>
-                    (Result: {selectedRecord.lymphocytes_percent.result}) (Unit:{" "}
-                    {selectedRecord.lymphocytes_percent.unit}) (Range:{" "}
+                    {selectedRecord.lymphocytes_percent.result}{" "}
+                    {selectedRecord.lymphocytes_percent.unit} (Range:{" "}
                     {selectedRecord.lymphocytes_percent.reference_range})
                   </span>
                 </div>
@@ -389,8 +471,8 @@ const CbcUser: React.FC = () => {
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>Monocytes:</span>
                   <span className={styles.infoValue}>
-                    (Result: {selectedRecord.monocytes_percent.result}) (Unit:{" "}
-                    {selectedRecord.monocytes_percent.unit}) (Range:{" "}
+                    {selectedRecord.monocytes_percent.result}{" "}
+                    {selectedRecord.monocytes_percent.unit} (Range:{" "}
                     {selectedRecord.monocytes_percent.reference_range})
                   </span>
                 </div>
@@ -398,8 +480,8 @@ const CbcUser: React.FC = () => {
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>Eosinophil:</span>
                   <span className={styles.infoValue}>
-                    (Result: {selectedRecord.eosinophils_percent.result}) (Unit:{" "}
-                    {selectedRecord.eosinophils_percent.unit}) (Range:{" "}
+                    {selectedRecord.eosinophils_percent.result}{" "}
+                    {selectedRecord.eosinophils_percent.unit} (Range:{" "}
                     {selectedRecord.eosinophils_percent.reference_range})
                   </span>
                 </div>
@@ -407,8 +489,8 @@ const CbcUser: React.FC = () => {
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>Basophil:</span>
                   <span className={styles.infoValue}>
-                    (Result: {selectedRecord.basophils_percent.result}) (Unit:{" "}
-                    {selectedRecord.basophils_percent.unit}) (Range:{" "}
+                    {selectedRecord.basophils_percent.result}{" "}
+                    {selectedRecord.basophils_percent.unit} (Range:{" "}
                     {selectedRecord.basophils_percent.reference_range})
                   </span>
                 </div>
@@ -418,50 +500,50 @@ const CbcUser: React.FC = () => {
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>Neutrophil:</span>
                   <span className={styles.infoValue}>
-                    (Result: {selectedRecord.neutrophils_abs?.result || "N/A"})
-                    (Unit: {selectedRecord.neutrophils_abs?.unit || "N/A"})
-                    (Range:{" "}
-                    {selectedRecord.neutrophils_abs?.reference_range || "N/A"})
+                    {selectedRecord.neutrophils_abs?.result || "N/A"}{" "}
+                    {selectedRecord.neutrophils_abs?.unit || ""}{" "}
+                    {selectedRecord.neutrophils_abs?.reference_range &&
+                      `(Range: ${selectedRecord.neutrophils_abs.reference_range})`}
                   </span>
                 </div>
 
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>Lymphocyte:</span>
                   <span className={styles.infoValue}>
-                    (Result: {selectedRecord.lymphocytes_abs?.result || "N/A"})
-                    (Unit: {selectedRecord.lymphocytes_abs?.unit || "N/A"})
-                    (Range:{" "}
-                    {selectedRecord.lymphocytes_abs?.reference_range || "N/A"})
+                    {selectedRecord.lymphocytes_abs?.result || "N/A"}{" "}
+                    {selectedRecord.lymphocytes_abs?.unit || ""}{" "}
+                    {selectedRecord.lymphocytes_abs?.reference_range &&
+                      `(Range: ${selectedRecord.lymphocytes_abs.reference_range})`}
                   </span>
                 </div>
 
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>Monocyte:</span>
                   <span className={styles.infoValue}>
-                    (Result: {selectedRecord.monocytes_abs?.result || "N/A"})
-                    (Unit: {selectedRecord.monocytes_abs?.unit || "N/A"})
-                    (Range:{" "}
-                    {selectedRecord.monocytes_abs?.reference_range || "N/A"})
+                    {selectedRecord.monocytes_abs?.result || "N/A"}{" "}
+                    {selectedRecord.monocytes_abs?.unit || ""}{" "}
+                    {selectedRecord.monocytes_abs?.reference_range &&
+                      `(Range: ${selectedRecord.monocytes_abs.reference_range})`}
                   </span>
                 </div>
 
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>Eosinophil:</span>
                   <span className={styles.infoValue}>
-                    (Result: {selectedRecord.eosinophils_abs?.result || "N/A"})
-                    (Unit: {selectedRecord.eosinophils_abs?.unit || "N/A"})
-                    (Range:{" "}
-                    {selectedRecord.eosinophils_abs?.reference_range || "N/A"})
+                    {selectedRecord.eosinophils_abs?.result || "N/A"}{" "}
+                    {selectedRecord.eosinophils_abs?.unit || ""}{" "}
+                    {selectedRecord.eosinophils_abs?.reference_range &&
+                      `(Range: ${selectedRecord.eosinophils_abs.reference_range})`}
                   </span>
                 </div>
 
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>Basophil:</span>
                   <span className={styles.infoValue}>
-                    (Result: {selectedRecord.basophils_abs?.result || "N/A"})
-                    (Unit: {selectedRecord.basophils_abs?.unit || "N/A"})
-                    (Range:{" "}
-                    {selectedRecord.basophils_abs?.reference_range || "N/A"})
+                    {selectedRecord.basophils_abs?.result || "N/A"}{" "}
+                    {selectedRecord.basophils_abs?.unit || ""}{" "}
+                    {selectedRecord.basophils_abs?.reference_range &&
+                      `(Range: ${selectedRecord.basophils_abs.reference_range})`}
                   </span>
                 </div>
               </div>
