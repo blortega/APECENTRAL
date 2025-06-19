@@ -103,11 +103,6 @@ const CbcUser: React.FC = () => {
 
       setUserData(currentUserData);
 
-      // Construct the full name to match against patient name
-      // Format: "FIRSTNAME LASTNAME" (assuming middle initial might be present)
-      const userFullName =
-        `${currentUserData.firstname} ${currentUserData.lastname}`.toUpperCase();
-
       // Get all CBC records
       const querySnapshot = await getDocs(collection(db, "cbcRecords"));
       const loadedRecords: CBCRecord[] = [];

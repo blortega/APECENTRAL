@@ -85,11 +85,6 @@ const EcgUser: React.FC = () => {
 
       setUserData(currentUserData);
 
-      // Construct the full name to match against patient_name
-      // Format: "FIRSTNAME LASTNAME" (assuming middle initial might be present)
-      const userFullName =
-        `${currentUserData.firstname} ${currentUserData.lastname}`.toUpperCase();
-
       // Get all ECG records
       const querySnapshot = await getDocs(collection(db, "ecgRecords"));
       const loadedRecords: EcgRecord[] = [];
