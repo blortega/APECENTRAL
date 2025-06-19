@@ -148,14 +148,24 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
   };
 
   const isRecordsActive = () => {
-    const recordsPaths = [
+    const adminRecordsPaths = [
       "/records",
-      "/records/cbcadmin",
-      "/records/xrayadmin",
-      "/records/ecgadmin",
-      "/record/urinalysisadmin",
+      "/cbcadmin",
+      "/xrayadmin",
+      "/ecgadmin",
+      "/urinalysisadmin",
     ];
-    return recordsPaths.some((path) => location.pathname === path);
+    const userRecordsPaths = [
+      "/records",
+      "/cbcuser",
+      "/xrayuser",
+      "/ecguser",
+      "/urinalysisuser",
+    ];
+
+    const pathsToCheck =
+      userData?.role === "Admin" ? adminRecordsPaths : userRecordsPaths;
+    return pathsToCheck.some((path) => location.pathname === path);
   };
 
   // Generate user initials for avatar (using lastname only)
@@ -201,6 +211,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
     },
   ];
 
+<<<<<<< HEAD
   const recordsSubItems = [
     {
       path: "/cbcadmin",
@@ -235,6 +246,66 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
       description: "Lipid Profile",
     },
   ];
+=======
+  // Role-based records sub-items
+  const getRecordsSubItems = () => {
+    if (userData?.role === "Admin") {
+      return [
+        {
+          path: "/cbcadmin",
+          icon: "🩸",
+          label: "CBC Admin",
+          description: "Complete Blood Count Management",
+        },
+        {
+          path: "/xrayadmin",
+          icon: "🩻",
+          label: "X-Ray Admin",
+          description: "Radiographic Images Management",
+        },
+        {
+          path: "/ecgadmin",
+          icon: "💓",
+          label: "ECG Admin",
+          description: "Electrocardiogram Management",
+        },
+        {
+          path: "/urinalysisadmin",
+          icon: "🔬",
+          label: "Urinalysis Admin",
+          description: "Clinical Microscopy Management",
+        },
+      ];
+    } else {
+      return [
+        {
+          path: "/cbcuser",
+          icon: "🩸",
+          label: "CBC",
+          description: "Complete Blood Count",
+        },
+        {
+          path: "/xrayuser",
+          icon: "🩻",
+          label: "X-Ray",
+          description: "Radiographic Images",
+        },
+        {
+          path: "/ecguser",
+          icon: "💓",
+          label: "ECG",
+          description: "Electrocardiogram",
+        },
+        {
+          path: "/urinalysisuser",
+          icon: "🔬",
+          label: "Urinalysis",
+          description: "Clinical Microscopy",
+        },
+      ];
+    }
+  };
+>>>>>>> 50dbe7032fdda376df03315a293fe4d53ae0359b
 
   const dropdownItems = [
     {
@@ -259,6 +330,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
       isSignOut: true,
     },
   ];
+
+  const recordsSubItems = getRecordsSubItems();
 
   return (
     <aside
@@ -289,8 +362,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
 
       <div className={styles.sidebarContent}>
         <nav className={styles.navigation}>
-          <h2 className={styles.sectionTitle}>Dashboard</h2>
-          <p className={styles.sectionDescription}>Overview & Statistics</p>
+          <h2 className={styles.sectionTitle}>
+            {userData?.role === "Admin" ? "Admin Dashboard" : "Dashboard"}
+          </h2>
+          <p className={styles.sectionDescription}>
+            {userData?.role === "Admin"
+              ? "Management & Administration"
+              : "Overview & Statistics"}
+          </p>
 
           <ul className={styles.menuList}>
             {menuItems.map((item) => (
@@ -329,7 +408,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
                     <div className={styles.menuContent}>
                       <span className={styles.menuLabel}>Medical Records</span>
                       <span className={styles.menuDescription}>
-                        Complete Health History
+                        {userData?.role === "Admin"
+                          ? "Records Management"
+                          : "Complete Health History"}
                       </span>
                     </div>
                     <div
@@ -365,7 +446,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
                             All Records
                           </span>
                           <span className={styles.submenuDescription}>
-                            View All Medical Records
+                            {userData?.role === "Admin"
+                              ? "Manage All Medical Records"
+                              : "View All Medical Records"}
                           </span>
                         </div>
                       </Link>
@@ -420,7 +503,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
                     {isLoadingUser ? "Loading..." : getDisplayName()}
                   </span>
                   <span className={styles.userEmail}>
-                    {isLoadingUser ? "Loading..." : userData?.email || ""}
+                    {isLoadingUser
+                      ? "Loading..."
+                      : `${userData?.email || ""} (${
+                          userData?.role || "Employee"
+                        })`}
                   </span>
                 </div>
               )}

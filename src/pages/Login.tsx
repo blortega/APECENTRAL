@@ -1,18 +1,19 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "@/firebaseConfig";
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { auth, db } from "@/firebaseConfig";
 import styles from "@/styles/Login.module.css";
 import { assets } from "@/components/assets";
 
 interface LoginFormData {
-  email: string;
+  emailOrUsername: string;
   password: string;
 }
 
 const Login: React.FC = () => {
   const [formData, setFormData] = useState<LoginFormData>({
-    email: "",
+    emailOrUsername: "",
     password: "",
   });
 
@@ -31,6 +32,40 @@ const Login: React.FC = () => {
     if (error) setError("");
   };
 
+  // Helper function to check if input is an email
+  const isEmail = (input: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(input);
+  };
+
+  // Function to get authentication email from username
+  const getAuthEmailFromUsername = async (
+    username: string
+  ): Promise<string | null> => {
+    try {
+      // Clean username (make lowercase and remove spaces, matching registration logic)
+      const cleanUsername = username.toLowerCase().replace(/\s+/g, "");
+
+      // Query Firestore to find user with matching username
+      const usersRef = collection(db, "users");
+      const q = query(usersRef, where("username", "==", cleanUsername));
+      const querySnapshot = await getDocs(q);
+
+      if (!querySnapshot.empty) {
+        const userDoc = querySnapshot.docs[0];
+        const userData = userDoc.data();
+
+        // Return the authEmail (used for Firebase Auth) or email if authEmail doesn't exist
+        return userData.authEmail || userData.email || null;
+      }
+
+      return null;
+    } catch (error) {
+      console.error("Error fetching user by username:", error);
+      return null;
+    }
+  };
+
   const handleSubmit = async (
     e: React.FormEvent<HTMLFormElement>
   ): Promise<void> => {
@@ -39,9 +74,24 @@ const Login: React.FC = () => {
     setError("");
 
     try {
+      let emailToUse = formData.emailOrUsername.trim();
+
+      // If input is not an email, try to get the authentication email from username
+      if (!isEmail(emailToUse)) {
+        const authEmail = await getAuthEmailFromUsername(emailToUse);
+        if (!authEmail) {
+          setError(
+            "Username not found. Please check your username or try using your email address."
+          );
+          setIsLoading(false);
+          return;
+        }
+        emailToUse = authEmail;
+      }
+
       const userCredential = await signInWithEmailAndPassword(
         auth,
-        formData.email,
+        emailToUse,
         formData.password
       );
 
@@ -62,7 +112,10 @@ const Login: React.FC = () => {
           setError("Incorrect password. Please try again.");
           break;
         case "auth/invalid-email":
-          setError("Please enter a valid email address.");
+          setError("Please enter a valid email address or username.");
+          break;
+        case "auth/invalid-credential":
+          setError("Invalid email/username or password. Please try again.");
           break;
         case "auth/too-many-requests":
           setError("Too many failed attempts. Please try again later.");
@@ -122,20 +175,23 @@ const Login: React.FC = () => {
               {error && <div className={styles.errorMessage}>{error}</div>}
 
               <div className={styles.inputGroup}>
-                <label htmlFor="email" className={styles.label}>
-                  Email Address
+                <label htmlFor="emailOrUsername" className={styles.label}>
+                  Email Address or Username
                 </label>
                 <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  value={formData.email}
+                  type="text"
+                  id="emailOrUsername"
+                  name="emailOrUsername"
+                  value={formData.emailOrUsername}
                   onChange={handleInputChange}
                   required
                   className={styles.input}
-                  placeholder="your.email@example.com"
-                  autoComplete="email"
+                  placeholder="your.email@example.com or username"
+                  autoComplete="username"
                 />
+                <small className={styles.inputHint}>
+                  You can sign in with either your email address or username.
+                </small>
               </div>
 
               <div className={styles.inputGroup}>

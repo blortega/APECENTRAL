@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { collection, getDocs } from "firebase/firestore";
-import { db } from "@/firebaseConfig";
+import { collection, getDocs, doc, getDoc } from "firebase/firestore";
+import { useAuthState } from "react-firebase-hooks/auth";
+import { auth, db } from "@/firebaseConfig";
 import styles from "@/styles/XRay.module.css";
 import Sidebar from "@/components/Sidebar";
 
@@ -20,27 +21,79 @@ interface XRayRecord {
   uploadDate: string;
 }
 
+interface UserData {
+  firstname: string;
+  lastname: string;
+  role: string;
+  employeeId: string;
+}
+
 const XrayUser: React.FC = () => {
+  const [user, loading, error] = useAuthState(auth);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [records, setRecords] = useState<XRayRecord[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loadingRecords, setLoadingRecords] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRecord, setSelectedRecord] = useState<XRayRecord | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [userData, setUserData] = useState<UserData | null>(null);
 
   const handleSidebarToggle = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
   };
 
-  // Load all records from Firestore
-  const loadRecords = async () => {
+  // Get current user's data from Firestore
+  const getCurrentUserData = async (
+    userId: string
+  ): Promise<UserData | null> => {
     try {
-      setLoading(true);
+      const userDoc = await getDoc(doc(db, "users", userId));
+      if (userDoc.exists()) {
+        const data = userDoc.data() as UserData;
+        return data;
+      }
+      return null;
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+      return null;
+    }
+  };
+
+  // Load records filtered by current user
+  const loadRecords = async () => {
+    if (!user) {
+      console.error("No authenticated user");
+      return;
+    }
+
+    try {
+      setLoadingRecords(true);
+
+      // Get current user's data first
+      const currentUserData = await getCurrentUserData(user.uid);
+      if (!currentUserData) {
+        console.error("Could not fetch user data");
+        return;
+      }
+
+      setUserData(currentUserData);
+
+      // Construct the full name to match against patientName
+      const userFullName =
+        `${currentUserData.lastname}, ${currentUserData.firstname}`.toUpperCase();
+
+      // Get all X-ray records
       const querySnapshot = await getDocs(collection(db, "xrayRecords"));
       const loadedRecords: XRayRecord[] = [];
 
       querySnapshot.forEach((doc) => {
-        loadedRecords.push({ id: doc.id, ...doc.data() } as XRayRecord);
+        const recordData = { id: doc.id, ...doc.data() } as XRayRecord;
+
+        // Only include records that belong to the current user
+        // Match by patient name (case-insensitive)
+        if (recordData.patientName?.toUpperCase() === userFullName) {
+          loadedRecords.push(recordData);
+        }
       });
 
       // Sort by upload date (newest first)
@@ -53,11 +106,11 @@ const XrayUser: React.FC = () => {
     } catch (error) {
       console.error("Error loading records:", error);
     } finally {
-      setLoading(false);
+      setLoadingRecords(false);
     }
   };
 
-  // Filter records based on search
+  // Filter records based on search (only within user's own records)
   const filteredRecords = records.filter(
     (record) =>
       record.patientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -65,19 +118,48 @@ const XrayUser: React.FC = () => {
       record.company?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Load records on component mount
+  // Load records when user is authenticated and component mounts
   React.useEffect(() => {
-    loadRecords();
-  }, []);
+    if (user && !loading) {
+      loadRecords();
+    }
+  }, [user, loading]);
+
+  // Show loading state while authenticating
+  if (loading) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.loadingContainer}>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error or redirect if not authenticated
+  if (error || !user) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.errorContainer}>
+          <p>Please log in to view your X-ray records.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.page}>
       <Sidebar onToggle={handleSidebarToggle} />
       <div className={styles.contentWrapper}>
         <div className={styles.header}>
-          <h1 className={styles.pageTitle}>X-Ray Records</h1>
+          <h1 className={styles.pageTitle}>My X-Ray Records</h1>
           <p className={styles.pageDescription}>
-            View your X-ray examination records and medical reports
+            {userData && (
+              <>
+                View your X-ray examination records and medical reports,{" "}
+                {userData.firstname}
+              </>
+            )}
           </p>
         </div>
 
@@ -87,7 +169,7 @@ const XrayUser: React.FC = () => {
             <div className={styles.searchContainer}>
               <input
                 type="text"
-                placeholder="Search by patient name, ID, or company..."
+                placeholder="Search your records by ID, company, or examination type..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className={styles.searchInput}
@@ -101,27 +183,33 @@ const XrayUser: React.FC = () => {
             <div className={styles.recordsHeader}>
               <div className={styles.recordsTitle}>
                 <h2 className={styles.sectionTitle}>
-                  Patient Records ({filteredRecords.length})
+                  Your Records ({filteredRecords.length})
                 </h2>
                 <p className={styles.recordsSubtitle}>
-                  View X-ray examination results
+                  Your personal X-ray examination results
                 </p>
               </div>
               <button
                 onClick={loadRecords}
                 className={styles.refreshButton}
-                disabled={loading}
+                disabled={loadingRecords}
               >
-                {loading ? "Loading..." : "Refresh"}
+                {loadingRecords ? "Loading..." : "Refresh"}
               </button>
             </div>
 
             {filteredRecords.length === 0 ? (
               <div className={styles.noRecords}>
                 <div className={styles.noRecordsIcon}>📋</div>
-                <h3 className={styles.noRecordsTitle}>No Records Found</h3>
+                <h3 className={styles.noRecordsTitle}>
+                  {records.length === 0
+                    ? "No Records Found"
+                    : "No Matching Records"}
+                </h3>
                 <p className={styles.noRecordsText}>
-                  No X-ray records available or adjust your search criteria.
+                  {records.length === 0
+                    ? "You don't have any X-ray records yet."
+                    : "No records match your search criteria."}
                 </p>
               </div>
             ) : (
