@@ -154,6 +154,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
       "/xrayadmin",
       "/ecgadmin",
       "/urinalysisadmin",
+      "/lipidadmin",
     ];
     const userRecordsPaths = [
       "/records",
@@ -211,42 +212,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
     },
   ];
 
-<<<<<<< HEAD
-  const recordsSubItems = [
-    {
-      path: "/cbcadmin",
-      icon: "🩸",
-      label: "CBC",
-      description: "Complete Blood Count",
-    },
-    {
-      path: "/xrayadmin",
-      icon: "🩻",
-      label: "X-Ray",
-      description: "Radiographic Images",
-    },
-    {
-      path: "/ecgadmin",
-      icon: "💓",
-      label: "ECG",
-      description: "Electrocardiogram",
-    },
-
-    {
-      path: "/urinalysisadmin",
-      icon: "💓",
-      label: "Urinalysis",
-      description: "Clinical Microscopy",
-    },
-
-    {
-      path: "/lipidadmin",
-      icon: "💓",
-      label: "Lipid Profile",
-      description: "Lipid Profile",
-    },
-  ];
-=======
   // Role-based records sub-items
   const getRecordsSubItems = () => {
     if (userData?.role === "Admin") {
@@ -274,6 +239,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
           icon: "🔬",
           label: "Urinalysis Admin",
           description: "Clinical Microscopy Management",
+        },
+        {
+          path: "/lipidadmin",
+          icon: "🔬",
+          label: "Lipid Admin",
+          description: "Lipid Profile Management",
         },
       ];
     } else {
@@ -305,7 +276,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
       ];
     }
   };
->>>>>>> 50dbe7032fdda376df03315a293fe4d53ae0359b
 
   const dropdownItems = [
     {

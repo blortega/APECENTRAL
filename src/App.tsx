@@ -12,13 +12,11 @@ import XRayAdmin from "@/pages/admin/XRayAdmin";
 import CbcAdmin from "@/pages/admin/CbcAdmin";
 import UrinalysisAdmin from "@/pages/admin/UrinalysisAdmin";
 import EcgAdmin from "./pages/admin/EcgAdmin";
-<<<<<<< HEAD
-import LipidAdmin from "./pages/admin/LipidAdmin";
-=======
 import XRayUser from "@/pages/user/XRayUser";
 import CbcUser from "@/pages/user/CbcUser";
 import UrinalysisUser from "@/pages/user/UrinalysisUser";
 import EcgUser from "@/pages/user/EcgUser";
+import LipidAdmin from "./pages/admin/LipidAdmin";
 
 interface UserData {
   email: string;
@@ -50,7 +48,6 @@ const ProtectedRoute: React.FC<{
 
   return <>{children}</>;
 };
->>>>>>> 50dbe7032fdda376df03315a293fe4d53ae0359b
 
 function App() {
   const [userData, setUserData] = useState<UserData | null>(null);
@@ -122,17 +119,6 @@ function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
-<<<<<<< HEAD
-      <Route path="/dashboard" element={<Dashboard />} />
-      <Route path="/xrayadmin" element={<XRayAdmin />} />
-      <Route path="/cbcadmin" element={<CbcAdmin />} />
-      <Route path="/ecgadmin" element={<EcgAdmin/>}/>
-      <Route path="/lipidadmin" element={<LipidAdmin/>}/>
-      <Route path="/urinalysisadmin" element={<UrinalysisAdmin />} />
-      <Route path="/xrayuser" element={<XRayUser />} />
-      <Route path="/cbcuser" element={<CbcUser />} />
-      <Route path="/urinalysisuser" element={<UrinalysisUser />} />
-=======
 
       {/* Protected Routes - Accessible to all authenticated users */}
       <Route
@@ -197,6 +183,20 @@ function App() {
             userRole={userData?.role}
           >
             <UrinalysisAdmin />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/lipidadmin"
+        element={
+          <ProtectedRoute
+            isAuthenticated={isAuthenticated}
+            isLoading={isLoading}
+            requiredRole="Admin"
+            userRole={userData?.role}
+          >
+            <LipidAdmin />
           </ProtectedRoute>
         }
       />
@@ -267,7 +267,6 @@ function App() {
           )
         }
       />
->>>>>>> 50dbe7032fdda376df03315a293fe4d53ae0359b
     </Routes>
   );
 }
