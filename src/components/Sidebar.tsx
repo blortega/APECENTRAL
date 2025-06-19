@@ -227,6 +227,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
       label: "Urinalysis",
       description: "Clinical Microscopy",
     },
+
+    {
+      path: "/lipidadmin",
+      icon: "💓",
+      label: "Lipid Profile",
+      description: "Lipid Profile",
+    },
   ];
 
   const dropdownItems = [

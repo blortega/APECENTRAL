@@ -16,6 +16,7 @@ interface CBCValue {
   result: string;
   unit: string;
   reference_range: string;
+  flag: string;
 }
 
 interface CBCRecord {
@@ -388,7 +389,7 @@ const CbcAdmin: React.FC = () => {
 
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>RBC Count:</span>
-                  <span className={styles.infoValue}>
+                  <span className={styles.infoValue}> {selectedRecord.rbc.flag && <span className={styles.flag}>({selectedRecord.rbc.flag}) </span>}
                     (Result: {selectedRecord.rbc.result}) (Unit:{" "}
                     {selectedRecord.rbc.unit}) (Range:{" "}
                     {selectedRecord.rbc.reference_range})
@@ -397,7 +398,7 @@ const CbcAdmin: React.FC = () => {
 
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>Hematocrit:</span>
-                  <span className={styles.infoValue}>
+                  <span className={styles.infoValue}> {selectedRecord.hematocrit.flag && <span className={styles.flag}>({selectedRecord.hematocrit.flag}) </span>}
                     (Result: {selectedRecord.hematocrit.result}) (Unit:{" "}
                     {selectedRecord.hematocrit.unit}) (Range:{" "}
                     {selectedRecord.hematocrit.reference_range})
@@ -406,7 +407,7 @@ const CbcAdmin: React.FC = () => {
 
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>Hemoglobin:</span>
-                  <span className={styles.infoValue}>
+                  <span className={styles.infoValue}> {selectedRecord.hemoglobin.flag && <span className={styles.flag}>({selectedRecord.hemoglobin.flag}) </span>}
                     (Result: {selectedRecord.hemoglobin.result}) (Unit:{" "}
                     {selectedRecord.hemoglobin.unit}) (Range:{" "}
                     {selectedRecord.hemoglobin.reference_range})
@@ -415,7 +416,7 @@ const CbcAdmin: React.FC = () => {
 
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>MCV:</span>
-                  <span className={styles.infoValue}>
+                  <span className={styles.infoValue}> {selectedRecord.mcv.flag && <span className={styles.flag}>({selectedRecord.mcv.flag}) </span>}
                     (Result: {selectedRecord.mcv.result}) (Unit:{" "}
                     {selectedRecord.mcv.unit}) (Range:{" "}
                     {selectedRecord.mcv.reference_range})
@@ -424,7 +425,7 @@ const CbcAdmin: React.FC = () => {
 
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>MCH:</span>
-                  <span className={styles.infoValue}>
+                  <span className={styles.infoValue}> {selectedRecord.mch.flag && <span className={styles.flag}>({selectedRecord.mch.flag}) </span>}
                     (Result: {selectedRecord.mch.result}) (Unit:{" "}
                     {selectedRecord.mch.unit}) (Range:{" "}
                     {selectedRecord.mch.reference_range})
@@ -433,7 +434,7 @@ const CbcAdmin: React.FC = () => {
 
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>MCHC:</span>
-                  <span className={styles.infoValue}>
+                  <span className={styles.infoValue}> {selectedRecord.mchc.flag && <span className={styles.flag}>({selectedRecord.mchc.flag}) </span>}
                     (Result: {selectedRecord.mchc.result}) (Unit:{" "}
                     {selectedRecord.mchc.unit}) (Range:{" "}
                     {selectedRecord.mchc.reference_range})
@@ -442,7 +443,7 @@ const CbcAdmin: React.FC = () => {
 
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>RDW:</span>
-                  <span className={styles.infoValue}>
+                  <span className={styles.infoValue}> {selectedRecord.rdw.flag && <span className={styles.flag}>({selectedRecord.rdw.flag}) </span>}
                     (Result: {selectedRecord.rdw.result}) (Unit:{" "}
                     {selectedRecord.rdw.unit}) (Range:{" "}
                     {selectedRecord.rdw.reference_range})
@@ -451,7 +452,7 @@ const CbcAdmin: React.FC = () => {
 
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>Platelet Count:</span>
-                  <span className={styles.infoValue}>
+                  <span className={styles.infoValue}> {selectedRecord.platelets.flag && <span className={styles.flag}>({selectedRecord.platelets.flag}) </span>}
                     (Result: {selectedRecord.platelets.result}) (Unit:{" "}
                     {selectedRecord.platelets.unit}) (Range:{" "}
                     {selectedRecord.platelets.reference_range})
@@ -460,7 +461,7 @@ const CbcAdmin: React.FC = () => {
 
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>MPV:</span>
-                  <span className={styles.infoValue}>
+                  <span className={styles.infoValue}> {selectedRecord.mpv.flag && <span className={styles.flag}>({selectedRecord.mpv.flag}) </span>}
                     (Result: {selectedRecord.mpv.result}) (Unit:{" "}
                     {selectedRecord.mpv.unit}) (Range:{" "}
                     {selectedRecord.mpv.reference_range})
@@ -469,7 +470,7 @@ const CbcAdmin: React.FC = () => {
 
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>WBC Count:</span>
-                  <span className={styles.infoValue}>
+                  <span className={styles.infoValue}> {selectedRecord.wbc.flag && <span className={styles.flag}>({selectedRecord.wbc.flag}) </span>}
                     (Result: {selectedRecord.wbc.result}) (Unit:{" "}
                     {selectedRecord.wbc.unit}) (Range:{" "}
                     {selectedRecord.wbc.reference_range})
@@ -481,7 +482,7 @@ const CbcAdmin: React.FC = () => {
                 </h4>
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>Neutrophil:</span>
-                  <span className={styles.infoValue}>
+                  <span className={styles.infoValue}> {selectedRecord.neutrophils_percent.flag && <span className={styles.flag}>({selectedRecord.neutrophils_percent.flag}) </span>}
                     (Result: {selectedRecord.neutrophils_percent.result}) (Unit:{" "}
                     {selectedRecord.neutrophils_percent.unit}) (Range:{" "}
                     {selectedRecord.neutrophils_percent.reference_range})
@@ -490,7 +491,7 @@ const CbcAdmin: React.FC = () => {
 
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>Lymphocytes:</span>
-                  <span className={styles.infoValue}>
+                  <span className={styles.infoValue}> {selectedRecord.lymphocytes_percent.flag && <span className={styles.flag}>({selectedRecord.lymphocytes_percent.flag}) </span>}
                     (Result: {selectedRecord.lymphocytes_percent.result}) (Unit:{" "}
                     {selectedRecord.lymphocytes_percent.unit}) (Range:{" "}
                     {selectedRecord.lymphocytes_percent.reference_range})
@@ -498,8 +499,8 @@ const CbcAdmin: React.FC = () => {
                 </div>
 
                 <div className={styles.infoItem}>
-                  <span className={styles.infoLabel}>Monocytes:</span>
-                  <span className={styles.infoValue}>
+                  <span className={styles.infoLabel}>Monocytes:</span> 
+                  <span className={styles.infoValue}> {selectedRecord.monocytes_percent.flag && <span className={styles.flag}>({selectedRecord.monocytes_percent.flag}) </span>}
                     (Result: {selectedRecord.monocytes_percent.result}) (Unit:{" "}
                     {selectedRecord.monocytes_percent.unit}) (Range:{" "}
                     {selectedRecord.monocytes_percent.reference_range})
@@ -508,7 +509,7 @@ const CbcAdmin: React.FC = () => {
 
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>Eosinophil:</span>
-                  <span className={styles.infoValue}>
+                  <span className={styles.infoValue}> {selectedRecord.eosinophils_percent.flag && <span className={styles.flag}>({selectedRecord.eosinophils_percent.flag}) </span>}
                     (Result: {selectedRecord.eosinophils_percent.result}) (Unit:{" "}
                     {selectedRecord.eosinophils_percent.unit}) (Range:{" "}
                     {selectedRecord.eosinophils_percent.reference_range})
@@ -517,7 +518,7 @@ const CbcAdmin: React.FC = () => {
 
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>Basophil:</span>
-                  <span className={styles.infoValue}>
+                  <span className={styles.infoValue}> {selectedRecord.basophils_percent.flag && <span className={styles.flag}>({selectedRecord.basophils_percent.flag}) </span>}
                     (Result: {selectedRecord.basophils_percent.result}) (Unit:{" "}
                     {selectedRecord.basophils_percent.unit}) (Range:{" "}
                     {selectedRecord.basophils_percent.reference_range})
@@ -528,7 +529,7 @@ const CbcAdmin: React.FC = () => {
 
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>Neutrophil:</span>
-                  <span className={styles.infoValue}>
+                  <span className={styles.infoValue}> {selectedRecord.neutrophils_abs.flag && <span className={styles.flag}>({selectedRecord.neutrophils_abs.flag}) </span>}
                     (Result: {selectedRecord.neutrophils_abs?.result || "N/A"})
                     (Unit: {selectedRecord.neutrophils_abs?.unit || "N/A"})
                     (Range:{" "}
@@ -538,7 +539,7 @@ const CbcAdmin: React.FC = () => {
 
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>Lymphocyte:</span>
-                  <span className={styles.infoValue}>
+                  <span className={styles.infoValue}> {selectedRecord.lymphocytes_abs.flag && <span className={styles.flag}>({selectedRecord.lymphocytes_abs.flag}) </span>}
                     (Result: {selectedRecord.lymphocytes_abs?.result || "N/A"})
                     (Unit: {selectedRecord.lymphocytes_abs?.unit || "N/A"})
                     (Range:{" "}
@@ -548,7 +549,7 @@ const CbcAdmin: React.FC = () => {
 
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>Monocyte:</span>
-                  <span className={styles.infoValue}>
+                  <span className={styles.infoValue}> {selectedRecord.monocytes_abs.flag && <span className={styles.flag}>({selectedRecord.monocytes_abs.flag}) </span>}
                     (Result: {selectedRecord.monocytes_abs?.result || "N/A"})
                     (Unit: {selectedRecord.monocytes_abs?.unit || "N/A"})
                     (Range:{" "}
@@ -558,7 +559,7 @@ const CbcAdmin: React.FC = () => {
 
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>Eosinophil:</span>
-                  <span className={styles.infoValue}>
+                  <span className={styles.infoValue}> {selectedRecord.eosinophils_abs.flag && <span className={styles.flag}>({selectedRecord.eosinophils_abs.flag}) </span>}
                     (Result: {selectedRecord.eosinophils_abs?.result || "N/A"})
                     (Unit: {selectedRecord.eosinophils_abs?.unit || "N/A"})
                     (Range:{" "}
@@ -568,7 +569,7 @@ const CbcAdmin: React.FC = () => {
 
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>Basophil:</span>
-                  <span className={styles.infoValue}>
+                  <span className={styles.infoValue}> {selectedRecord.basophils_abs.flag && <span className={styles.flag}>({selectedRecord.basophils_abs.flag}) </span>}
                     (Result: {selectedRecord.basophils_abs?.result || "N/A"})
                     (Unit: {selectedRecord.basophils_abs?.unit || "N/A"})
                     (Range:{" "}

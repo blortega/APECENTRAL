@@ -4,6 +4,9 @@ import fitz  # PyMuPDF
 from typing import Dict
 from datetime import datetime
 import re
+import os
+
+
 
 app = FastAPI()
 
@@ -15,6 +18,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/")
+async def root():
+    return {"message": "Medical Records API is running"}
 
 @app.post("/extract-xray")
 async def extract_xray(file: UploadFile = File(...)) -> Dict:
@@ -505,3 +512,184 @@ async def extract_ecg(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing ECG file: {str(e)}")
 
+@app.post("/extract-lipid")
+async def extract_lipid(file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        pdf = fitz.open(stream=contents, filetype="pdf")
+        text = "".join([page.get_text() for page in pdf])
+        pdf.close()
+        
+        # Print extracted text for debugging (remove in production)
+        print("Extracted text:", text)
+        
+        # Split text into lines for easier processing
+        lines = [line.strip() for line in text.split('\n') if line.strip()]
+        
+        # Initialize extracted data
+        extracted_data = {
+            "patientName": "",
+            "mrn": "",
+            "gender": "",
+            "age": "",
+            "careprovider": "",
+            "location": "",
+            "dateOfBirth": "",
+            "collectionDateTime": "",
+            "resultValidated": "",
+            "testResults": {},
+            "fileName": file.filename,
+            "uploadDate": datetime.utcnow().isoformat(),
+            "uniqueId": ""
+        }
+        
+        # Process line by line
+        for i, line in enumerate(lines):
+            # Patient Name
+            if "Name :" in line:
+                name_match = re.search(r"Name\s*:\s*([A-Z\s]+)", line)
+                if name_match:
+                    extracted_data["patientName"] = name_match.group(1).strip()
+            
+            # MRN
+            if "MRN :" in line:
+                mrn_match = re.search(r"MRN\s*:\s*(\d+)", line)
+                if mrn_match:
+                    extracted_data["mrn"] = mrn_match.group(1)
+            
+            # Gender and Age
+            if "Gender / Age :" in line:
+                gender_age_match = re.search(r"Gender\s*/\s*Age\s*:\s*([A-Z]+)\s*/\s*(\d+)Y", line)
+                if gender_age_match:
+                    extracted_data["gender"] = gender_age_match.group(1)
+                    extracted_data["age"] = gender_age_match.group(2)
+            
+            # Careprovider
+            if "Careprovider :" in line:
+                care_match = re.search(r"Careprovider\s*:\s*([^\s].*?)(?:\s+Result|$)", line)
+                if care_match:
+                    extracted_data["careprovider"] = care_match.group(1).strip()
+            
+            # Location
+            if "Location :" in line:
+                location_match = re.search(r"Location\s*:\s*([A-Z]+)", line)
+                if location_match:
+                    extracted_data["location"] = location_match.group(1)
+            
+            # Date of Birth
+            if "DOB :" in line:
+                dob_match = re.search(r"DOB\s*:\s*([0-9\-]+)", line)
+                if dob_match:
+                    extracted_data["dateOfBirth"] = dob_match.group(1)
+            
+            # Collection Date/Time
+            if "Collection Date/Time :" in line:
+                collection_match = re.search(r"Collection Date/Time\s*:\s*([0-9\-\s:]+)", line)
+                if collection_match:
+                    extracted_data["collectionDateTime"] = collection_match.group(1).strip()
+            
+            # Result Validated
+            if "Result Validated :" in line:
+                validated_match = re.search(r"Result Validated\s*:\s*([0-9\-\s:]+)", line)
+                if validated_match:
+                    extracted_data["resultValidated"] = validated_match.group(1).strip()
+            
+            # Test Results - ALT/SGPT
+            if "ALT/SGPT" in line and any(char.isdigit() for char in line):
+                alt_match = re.search(r"ALT/SGPT\s+([\d.]+)\s+(U/L)\s+([\d.\s\-]+)", line)
+                if alt_match:
+                    extracted_data["testResults"]["ALT/SGPT"] = {
+                        "result": alt_match.group(1),
+                        "unit": alt_match.group(2),
+                        "reference_range": alt_match.group(3).strip(),
+                        "flag": ""
+                    }
+            
+            # Cholesterol (Total)
+            if "Cholesterol (Total)" in line and any(char.isdigit() for char in line):
+                chol_match = re.search(r"Cholesterol \(Total\)\s+([\d.]+)\s+(mg/dL)\s+([\d.\s\-]+)", line)
+                if chol_match:
+                    extracted_data["testResults"]["Cholesterol (Total)"] = {
+                        "result": chol_match.group(1),
+                        "unit": chol_match.group(2),
+                        "reference_range": chol_match.group(3).strip(),
+                        "flag": ""
+                    }
+            
+            # Triglycerides
+            if "Triglycerides" in line and any(char.isdigit() for char in line):
+                trig_match = re.search(r"Triglycerides\s+([\d.]+)\s+(mg/dL)\s+([\d.\s\-]+)", line)
+                if trig_match:
+                    extracted_data["testResults"]["Triglycerides"] = {
+                        "result": trig_match.group(1),
+                        "unit": trig_match.group(2),
+                        "reference_range": trig_match.group(3).strip(),
+                        "flag": ""
+                    }
+            
+            # Cholesterol HDL
+            if "Cholesterol HDL" in line and any(char.isdigit() for char in line):
+                hdl_match = re.search(r"Cholesterol HDL\s+([HLhlog]*)\s*([\d.]+)\s+(mg/dL)\s+([\d.\s\-]+)", line)
+                if hdl_match:
+                    flag = hdl_match.group(1) if hdl_match.group(1) and hdl_match.group(1) in ['H', 'L'] else ""
+                    result = hdl_match.group(2) if hdl_match.group(2) else hdl_match.group(1)
+                    extracted_data["testResults"]["Cholesterol HDL"] = {
+                        "result": result,
+                        "unit": hdl_match.group(3),
+                        "reference_range": hdl_match.group(4).strip(),
+                        "flag": flag
+                    }
+            
+            # Cholesterol LDL
+            if "Cholesterol LDL" in line and any(char.isdigit() for char in line):
+                ldl_match = re.search(r"Cholesterol LDL\s+([\d.]+)\s+(mg/dL)\s+([\d.\s\-]+)", line)
+                if ldl_match:
+                    extracted_data["testResults"]["Cholesterol LDL"] = {
+                        "result": ldl_match.group(1),
+                        "unit": ldl_match.group(2),
+                        "reference_range": ldl_match.group(3).strip(),
+                        "flag": ""
+                    }
+            
+            # VLDL
+            if "VLDL" in line and any(char.isdigit() for char in line):
+                vldl_match = re.search(r"VLDL\s+([HLlog]*)\s*([\d.]+)\s+(mg/dL)\s+([\d.\s\-]+)", line)
+                if vldl_match:
+                    flag = vldl_match.group(1) if vldl_match.group(1) and vldl_match.group(1) in ['H', 'L'] else ""
+                    result = vldl_match.group(2) if vldl_match.group(2) else vldl_match.group(1)
+                    extracted_data["testResults"]["VLDL"] = {
+                        "result": result,
+                        "unit": vldl_match.group(3),
+                        "reference_range": vldl_match.group(4).strip(),
+                        "flag": flag
+                    }
+        
+        # Generate uniqueId after extraction
+        unique_parts = [
+            extracted_data.get("mrn", ""),
+            extracted_data.get("patientName", "").replace(" ", ""),
+            extracted_data.get("collectionDateTime", "")[:10]  # Just the date part
+        ]
+        extracted_data["uniqueId"] = "_".join([part for part in unique_parts if part])
+        
+        # If no unique parts found, use filename + timestamp
+        if not extracted_data["uniqueId"]:
+            extracted_data["uniqueId"] = f"{file.filename}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+        
+        # Return success response with extracted data
+        return {
+            "success": True,
+            "data": extracted_data,
+            "message": "Lipid profile data extracted successfully"
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Error processing lipid profile file: {str(e)}",
+            "data": None
+        }
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

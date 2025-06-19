@@ -81,6 +81,9 @@
   border-bottom: 2px solid #e0f2fe;
 }
 
+.flag {
+  color: black;
+}
 /* Upload Section */
 .uploadSection {
   margin-bottom: 2rem;

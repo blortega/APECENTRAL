@@ -11,6 +11,7 @@ import XRayUser from "./pages/user/XRayUser";
 import CbcUser from "./pages/user/CbcUser";
 import UrinalysisUser from "./pages/user/UrinalysisUser";
 import EcgAdmin from "./pages/admin/EcgAdmin";
+import LipidAdmin from "./pages/admin/LipidAdmin";
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
       <Route path="/xrayadmin" element={<XRayAdmin />} />
       <Route path="/cbcadmin" element={<CbcAdmin />} />
       <Route path="/ecgadmin" element={<EcgAdmin/>}/>
+      <Route path="/lipidadmin" element={<LipidAdmin/>}/>
       <Route path="/urinalysisadmin" element={<UrinalysisAdmin />} />
       <Route path="/xrayuser" element={<XRayUser />} />
       <Route path="/cbcuser" element={<CbcUser />} />

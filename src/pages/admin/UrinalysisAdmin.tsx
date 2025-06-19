@@ -16,6 +16,7 @@ interface LabValue {
   result: string;
   unit: string;
   reference_range: string;
+  flag: string;
 }
 
 interface UrinalysisRecord {
