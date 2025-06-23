@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { collection, getDocs } from "firebase/firestore";
-import { db } from "@/firebaseConfig";
+import {
+  collection,
+  getDocs,
+  doc,
+  getDoc,
+  query,
+  where,
+} from "firebase/firestore";
+import { db, auth } from "@/firebaseConfig";
+import { useAuthState } from "react-firebase-hooks/auth";
 import styles from "@/styles/Dashboard.module.css";
 import Sidebar from "@/components/Sidebar";
 
@@ -29,9 +37,45 @@ const Dashboard: React.FC = () => {
     []
   );
   const [xrayRecordsCount, setXrayRecordsCount] = useState(0);
+  const [employeeCount, setEmployeeCount] = useState(0);
+  const [userRole, setUserRole] = useState<string>("User");
+  const [user, userLoading] = useAuthState(auth);
 
   const handleSidebarToggle = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
+  };
+
+  // Load current user's role
+  const loadUserRole = async () => {
+    if (!user?.uid) return;
+
+    try {
+      const userDocRef = doc(db, "users", user.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        setUserRole(userData.role || "User");
+      }
+    } catch (error) {
+      console.error("Error loading user role:", error);
+      setUserRole("User"); // Fallback to default
+    }
+  };
+
+  // Load count of users with "Employee" role
+  const loadEmployeeCount = async () => {
+    try {
+      const employeeQuery = query(
+        collection(db, "users"),
+        where("role", "==", "Employee")
+      );
+      const querySnapshot = await getDocs(employeeQuery);
+      setEmployeeCount(querySnapshot.size);
+    } catch (error) {
+      console.error("Error loading employee count:", error);
+      setEmployeeCount(0); // Fallback to 0 on error
+    }
   };
 
   // Load dashboard statistics
@@ -42,7 +86,7 @@ const Dashboard: React.FC = () => {
       const mockStats: StatsCard[] = [
         {
           title: "Total Patients",
-          value: "1,248",
+          value: employeeCount,
           icon: "👥",
           trend: "up",
           trendValue: "12%",
@@ -133,9 +177,23 @@ const Dashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    loadXrayRecordsCount();
+    if (user && !userLoading) {
+      loadUserRole();
+    }
+  }, [user, userLoading]);
+
+  useEffect(() => {
+    const loadDashboardData = async () => {
+      await Promise.all([loadXrayRecordsCount(), loadEmployeeCount()]);
+    };
+
+    loadDashboardData();
+  }, []); // Load data on component mount
+
+  // Update stats whenever counts change
+  useEffect(() => {
     loadStats();
-  }, [xrayRecordsCount]);
+  }, [employeeCount, xrayRecordsCount]);
 
   return (
     <div className={styles.page}>
@@ -151,7 +209,7 @@ const Dashboard: React.FC = () => {
             <div className={styles.headerText}>
               <h1 className={styles.pageTitle}>
                 Medical Dashboard
-                <span className={styles.titleAccent}>Admin</span>
+                <span className={styles.titleAccent}>{userRole}</span>
               </h1>
               <p className={styles.pageDescription}>
                 Comprehensive overview of your medical practice
