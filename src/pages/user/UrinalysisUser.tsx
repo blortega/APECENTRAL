@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { collection, getDocs } from "firebase/firestore";
-import { db } from "@/firebaseConfig";
+import { collection, getDocs, doc, getDoc } from "firebase/firestore";
+import { useAuthState } from "react-firebase-hooks/auth";
+import { auth, db } from "@/firebaseConfig";
 import styles from "@/styles/XRay.module.css";
 import Sidebar from "@/components/Sidebar";
 
@@ -46,29 +47,92 @@ interface UrinalysisRecord {
   uploadDate: string;
 }
 
+interface UserData {
+  firstname: string;
+  lastname: string;
+  role: string;
+  employeeId: string;
+}
+
 const UrinalysisUser: React.FC = () => {
+  const [user, loading, error] = useAuthState(auth);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [records, setRecords] = useState<UrinalysisRecord[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loadingRecords, setLoadingRecords] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRecord, setSelectedRecord] = useState<UrinalysisRecord | null>(
     null
   );
   const [showModal, setShowModal] = useState(false);
+  const [userData, setUserData] = useState<UserData | null>(null);
 
   const handleSidebarToggle = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
   };
 
-  // Load all records from Firestore
-  const loadRecords = async () => {
+  // Get current user's data from Firestore
+  const getCurrentUserData = async (
+    userId: string
+  ): Promise<UserData | null> => {
     try {
-      setLoading(true);
+      const userDoc = await getDoc(doc(db, "users", userId));
+      if (userDoc.exists()) {
+        const data = userDoc.data() as UserData;
+        return data;
+      }
+      return null;
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+      return null;
+    }
+  };
+
+  // Load records filtered by current user
+  const loadRecords = async () => {
+    if (!user) {
+      console.error("No authenticated user");
+      return;
+    }
+
+    try {
+      setLoadingRecords(true);
+
+      // Get current user's data first
+      const currentUserData = await getCurrentUserData(user.uid);
+      if (!currentUserData) {
+        console.error("Could not fetch user data");
+        return;
+      }
+
+      setUserData(currentUserData);
+
+      // Get all urinalysis records
       const querySnapshot = await getDocs(collection(db, "urinalysisRecords"));
       const loadedRecords: UrinalysisRecord[] = [];
 
       querySnapshot.forEach((doc) => {
-        loadedRecords.push({ id: doc.id, ...doc.data() } as UrinalysisRecord);
+        const recordData = { id: doc.id, ...doc.data() } as UrinalysisRecord;
+
+        // Only include records that belong to the current user
+        // Match by patient name (case-insensitive)
+        // Handle cases where titles (Ms/Mr) and middle name/initial might be present
+        const patientName = recordData.patientName?.toUpperCase() || "";
+        const firstName = currentUserData.firstname.toUpperCase();
+        const lastName = currentUserData.lastname.toUpperCase();
+
+        // Remove common titles to match the name properly
+        const cleanedPatientName = patientName
+          .replace(/^(MS|MR|MRS|DR|MISS)\.?\s+/i, "")
+          .trim();
+
+        // Check if patient name contains both first and last name
+        const matchesUser =
+          cleanedPatientName.includes(firstName) &&
+          cleanedPatientName.includes(lastName);
+
+        if (matchesUser) {
+          loadedRecords.push(recordData);
+        }
       });
 
       // Sort by upload date (newest first)
@@ -81,30 +145,60 @@ const UrinalysisUser: React.FC = () => {
     } catch (error) {
       console.error("Error loading records:", error);
     } finally {
-      setLoading(false);
+      setLoadingRecords(false);
     }
   };
 
-  // Filter records based on search
+  // Filter records based on search (only within user's own records)
   const filteredRecords = records.filter(
     (record) =>
       record.patientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.uniqueId?.toLowerCase().includes(searchTerm.toLowerCase())
+      record.uniqueId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.mrn?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Load records on component mount
+  // Load records when user is authenticated and component mounts
   React.useEffect(() => {
-    loadRecords();
-  }, []);
+    if (user && !loading) {
+      loadRecords();
+    }
+  }, [user, loading]);
+
+  // Show loading state while authenticating
+  if (loading) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.loadingContainer}>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error or redirect if not authenticated
+  if (error || !user) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.errorContainer}>
+          <p>Please log in to view your urinalysis records.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.page}>
       <Sidebar onToggle={handleSidebarToggle} />
       <div className={styles.contentWrapper}>
         <div className={styles.header}>
-          <h1 className={styles.pageTitle}>Urinalysis Records</h1>
+          <h1 className={styles.pageTitle}>My Urinalysis Records</h1>
           <p className={styles.pageDescription}>
-            View your Urinalysis lab results.
+            {userData && (
+              <>
+                View your urinalysis lab results and medical reports,{" "}
+                {userData.firstname}
+              </>
+            )}
           </p>
         </div>
 
@@ -114,7 +208,7 @@ const UrinalysisUser: React.FC = () => {
             <div className={styles.searchContainer}>
               <input
                 type="text"
-                placeholder="Search by patient name or ID..."
+                placeholder="Search your records by ID, MRN, or patient name..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className={styles.searchInput}
@@ -128,27 +222,33 @@ const UrinalysisUser: React.FC = () => {
             <div className={styles.recordsHeader}>
               <div className={styles.recordsTitle}>
                 <h2 className={styles.sectionTitle}>
-                  Patient Records ({filteredRecords.length})
+                  Your Records ({filteredRecords.length})
                 </h2>
                 <p className={styles.recordsSubtitle}>
-                  View Urinalysis results
+                  Your personal urinalysis lab results
                 </p>
               </div>
               <button
                 onClick={loadRecords}
                 className={styles.refreshButton}
-                disabled={loading}
+                disabled={loadingRecords}
               >
-                {loading ? "Loading..." : "Refresh"}
+                {loadingRecords ? "Loading..." : "Refresh"}
               </button>
             </div>
 
             {filteredRecords.length === 0 ? (
               <div className={styles.noRecords}>
                 <div className={styles.noRecordsIcon}>📋</div>
-                <h3 className={styles.noRecordsTitle}>No Records Found</h3>
+                <h3 className={styles.noRecordsTitle}>
+                  {records.length === 0
+                    ? "No Records Found"
+                    : "No Matching Records"}
+                </h3>
                 <p className={styles.noRecordsText}>
-                  No records available or adjust your search criteria.
+                  {records.length === 0
+                    ? "You don't have any urinalysis records yet."
+                    : "No records match your search criteria."}
                 </p>
               </div>
             ) : (
@@ -170,11 +270,15 @@ const UrinalysisUser: React.FC = () => {
                           }}
                           className={styles.viewButton}
                         >
-                          View
+                          View Details
                         </button>
                       </div>
                     </div>
                     <div className={styles.recordDetails}>
+                      <div className={styles.recordItem}>
+                        <span className={styles.recordLabel}>MRN:</span>
+                        <span className={styles.recordValue}>{record.mrn}</span>
+                      </div>
                       <div className={styles.recordItem}>
                         <span className={styles.recordLabel}>Age:</span>
                         <span className={styles.recordValue}>{record.age}</span>
@@ -248,6 +352,12 @@ const UrinalysisUser: React.FC = () => {
                     <span className={styles.infoLabel}>Unique ID:</span>
                     <span className={styles.infoValue}>
                       {selectedRecord.uniqueId}
+                    </span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>MRN:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.mrn}
                     </span>
                   </div>
                   <div className={styles.infoItem}>

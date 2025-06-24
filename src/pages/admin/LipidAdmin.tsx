@@ -50,7 +50,9 @@ const LipidAdmin: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedRecord, setSelectedRecord] = useState<LipidRecord | null>(null);
+  const [selectedRecord, setSelectedRecord] = useState<LipidRecord | null>(
+    null
+  );
   const [showModal, setShowModal] = useState(false);
   const [showPdfViewer, setShowPdfViewer] = useState(false);
   const [currentPdfUrl, setCurrentPdfUrl] = useState("");
@@ -61,6 +63,7 @@ const LipidAdmin: React.FC = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
   };
 
+<<<<<<< HEAD
   // Handle PDF viewing with better error handling
   const handleViewPdf = async (record: LipidRecord) => {
     try {
@@ -159,6 +162,11 @@ const LipidAdmin: React.FC = () => {
 
   // Enhanced file upload with better error handling
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+=======
+  const handleFileUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+>>>>>>> 4d1621e64ef87bc83674f967fd1dc7e7ba7a257b
     const files = event.target.files;
     if (!files || files.length === 0) return;
 
@@ -173,8 +181,12 @@ const LipidAdmin: React.FC = () => {
     try {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
+<<<<<<< HEAD
         
         // Validate file type
+=======
+
+>>>>>>> 4d1621e64ef87bc83674f967fd1dc7e7ba7a257b
         if (file.type !== "application/pdf") {
           const errorMsg = `File "${file.name}" is not a PDF file`;
           errors.push(errorMsg);
@@ -191,7 +203,9 @@ const LipidAdmin: React.FC = () => {
           continue;
         }
 
-        setUploadProgress(`Processing ${file.name}... (${i + 1}/${files.length})`);
+        setUploadProgress(
+          `Processing ${file.name}... (${i + 1}/${files.length})`
+        );
 
         const formData = new FormData();
         formData.append("file", file);
@@ -202,9 +216,15 @@ const LipidAdmin: React.FC = () => {
             body: formData,
           });
 
+<<<<<<< HEAD
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
+=======
+        const result = await res.json();
+
+        console.log("Backend response:", result);
+>>>>>>> 4d1621e64ef87bc83674f967fd1dc7e7ba7a257b
 
           const data = await response.json();
           console.log("Parsed Data from backend:", data);
@@ -281,12 +301,24 @@ const LipidAdmin: React.FC = () => {
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
+<<<<<<< HEAD
       
       // Clear progress after delay
       setTimeout(() => {
         setUploadProgress("");
         setUploadError("");
       }, 5000);
+=======
+
+      setUploadProgress("Upload completed!");
+    } catch (err) {
+      console.error("Upload error:", err);
+      setUploadProgress(`Upload failed: ${err}`);
+    } finally {
+      await loadRecords();
+      setTimeout(() => setUploadProgress(""), 3000); // Clear message after 3 seconds
+      setLoading(false);
+>>>>>>> 4d1621e64ef87bc83674f967fd1dc7e7ba7a257b
     }
   };
 
@@ -565,6 +597,7 @@ const LipidAdmin: React.FC = () => {
                         </span>
                       </div>
                       <div className={styles.recordItem}>
+<<<<<<< HEAD
                         <span className={styles.recordLabel}>Report Date:</span>
                         <span className={styles.recordValue}>
                           {record.collectionDateTime || "N/A"}
@@ -590,6 +623,17 @@ const LipidAdmin: React.FC = () => {
                         <span className={styles.recordValue} style={{ color: getFlagColor(record.ldl_cholesterol?.flag) }}>
                           {record.ldl_cholesterol?.result || "N/A"}
                           {record.ldl_cholesterol?.flag && ` (${record.ldl_cholesterol.flag})`}
+=======
+                        <span className={styles.recordLabel}>MRN:</span>
+                        <span className={styles.recordValue}>{record.mrn}</span>
+                      </div>
+                      <div className={styles.recordItem}>
+                        <span className={styles.recordLabel}>
+                          Collection Date:
+                        </span>
+                        <span className={styles.recordValue}>
+                          {record.collectionDateTime}
+>>>>>>> 4d1621e64ef87bc83674f967fd1dc7e7ba7a257b
                         </span>
                       </div>
                     </div>
@@ -609,7 +653,13 @@ const LipidAdmin: React.FC = () => {
         >
           <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
             <div className={styles.modalHeader}>
+<<<<<<< HEAD
               <h3 className={styles.modalTitle}>Lipid Profile Result Details</h3>
+=======
+              <h3 className={styles.modalTitle}>
+                Lipid Profile Report Details
+              </h3>
+>>>>>>> 4d1621e64ef87bc83674f967fd1dc7e7ba7a257b
               <button
                 onClick={() => setShowModal(false)}
                 className={styles.closeButton}
@@ -679,6 +729,7 @@ const LipidAdmin: React.FC = () => {
               </div>
 
               <div className={styles.examSection}>
+<<<<<<< HEAD
                 <h4 className={styles.sectionSubtitle}>Chemistry - Immunology</h4>
                 
                 <h5 className={styles.sectionSubtitle}>Liver Function Test</h5>
@@ -723,6 +774,139 @@ const LipidAdmin: React.FC = () => {
                       </span>
                     </div>
                   </div>
+=======
+                <h4 className={styles.sectionSubtitle}>
+                  Collection & Validation
+                </h4>
+                <div className={styles.infoGrid}>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>
+                      Collection Date/Time:
+                    </span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.collectionDateTime}
+                    </span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>Result Validated:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.resultValidated}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className={styles.resultsSection}>
+                <h4 className={styles.sectionSubtitle}>Test Results</h4>
+                <div className={styles.resultsTable}>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr style={{ backgroundColor: "#f5f5f5" }}>
+                        <th
+                          style={{
+                            border: "1px solid #ddd",
+                            padding: "8px",
+                            textAlign: "left",
+                          }}
+                        >
+                          Test
+                        </th>
+                        <th
+                          style={{
+                            border: "1px solid #ddd",
+                            padding: "8px",
+                            textAlign: "left",
+                          }}
+                        >
+                          Result
+                        </th>
+                        <th
+                          style={{
+                            border: "1px solid #ddd",
+                            padding: "8px",
+                            textAlign: "left",
+                          }}
+                        >
+                          Unit
+                        </th>
+                        <th
+                          style={{
+                            border: "1px solid #ddd",
+                            padding: "8px",
+                            textAlign: "left",
+                          }}
+                        >
+                          Reference Range
+                        </th>
+                        <th
+                          style={{
+                            border: "1px solid #ddd",
+                            padding: "8px",
+                            textAlign: "left",
+                          }}
+                        >
+                          Flag
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.entries(selectedRecord.testResults).map(
+                        ([test, data]) => (
+                          <tr key={test}>
+                            <td
+                              style={{
+                                border: "1px solid #ddd",
+                                padding: "8px",
+                              }}
+                            >
+                              {test}
+                            </td>
+                            <td
+                              style={{
+                                border: "1px solid #ddd",
+                                padding: "8px",
+                                fontWeight: "bold",
+                              }}
+                            >
+                              {data.result}
+                            </td>
+                            <td
+                              style={{
+                                border: "1px solid #ddd",
+                                padding: "8px",
+                              }}
+                            >
+                              {data.unit}
+                            </td>
+                            <td
+                              style={{
+                                border: "1px solid #ddd",
+                                padding: "8px",
+                              }}
+                            >
+                              {data.reference_range}
+                            </td>
+                            <td
+                              style={{
+                                border: "1px solid #ddd",
+                                padding: "8px",
+                                color:
+                                  data.flag === "H"
+                                    ? "red"
+                                    : data.flag === "L"
+                                    ? "blue"
+                                    : "black",
+                                fontWeight: data.flag ? "bold" : "normal",
+                              }}
+                            >
+                              {data.flag || "-"}
+                            </td>
+                          </tr>
+                        )
+                      )}
+                    </tbody>
+                  </table>
+>>>>>>> 4d1621e64ef87bc83674f967fd1dc7e7ba7a257b
                 </div>
               </div>
             </div>

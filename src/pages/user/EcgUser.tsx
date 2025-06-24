@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { collection, getDocs } from "firebase/firestore";
-import { db } from "@/firebaseConfig";
+import { collection, getDocs, doc, getDoc } from "firebase/firestore";
+import { useAuthState } from "react-firebase-hooks/auth";
+import { auth, db } from "@/firebaseConfig";
 import styles from "@/styles/XRay.module.css";
 import Sidebar from "@/components/Sidebar";
 
@@ -27,27 +28,84 @@ interface EcgRecord {
   uploadDate: string;
 }
 
+interface UserData {
+  firstname: string;
+  lastname: string;
+  role: string;
+  employeeId: string;
+}
+
 const EcgUser: React.FC = () => {
+  const [user, loading, error] = useAuthState(auth);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [records, setRecords] = useState<EcgRecord[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loadingRecords, setLoadingRecords] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRecord, setSelectedRecord] = useState<EcgRecord | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [userData, setUserData] = useState<UserData | null>(null);
 
   const handleSidebarToggle = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
   };
 
-  // Load all records from Firestore
-  const loadRecords = async () => {
+  // Get current user's data from Firestore
+  const getCurrentUserData = async (
+    userId: string
+  ): Promise<UserData | null> => {
     try {
-      setLoading(true);
+      const userDoc = await getDoc(doc(db, "users", userId));
+      if (userDoc.exists()) {
+        const data = userDoc.data() as UserData;
+        return data;
+      }
+      return null;
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+      return null;
+    }
+  };
+
+  // Load records filtered by current user
+  const loadRecords = async () => {
+    if (!user) {
+      console.error("No authenticated user");
+      return;
+    }
+
+    try {
+      setLoadingRecords(true);
+
+      // Get current user's data first
+      const currentUserData = await getCurrentUserData(user.uid);
+      if (!currentUserData) {
+        console.error("Could not fetch user data");
+        return;
+      }
+
+      setUserData(currentUserData);
+
+      // Get all ECG records
       const querySnapshot = await getDocs(collection(db, "ecgRecords"));
       const loadedRecords: EcgRecord[] = [];
 
       querySnapshot.forEach((doc) => {
-        loadedRecords.push({ id: doc.id, ...doc.data() } as EcgRecord);
+        const recordData = { id: doc.id, ...doc.data() } as EcgRecord;
+
+        // Only include records that belong to the current user
+        // Match by patient name (case-insensitive)
+        // Handle cases where middle name/initial might be present
+        const patientName = recordData.patient_name?.toUpperCase() || "";
+        const firstName = currentUserData.firstname.toUpperCase();
+        const lastName = currentUserData.lastname.toUpperCase();
+
+        // Check if patient name contains both first and last name
+        const matchesUser =
+          patientName.includes(firstName) && patientName.includes(lastName);
+
+        if (matchesUser) {
+          loadedRecords.push(recordData);
+        }
       });
 
       // Sort by upload date (newest first)
@@ -60,11 +118,11 @@ const EcgUser: React.FC = () => {
     } catch (error) {
       console.error("Error loading records:", error);
     } finally {
-      setLoading(false);
+      setLoadingRecords(false);
     }
   };
 
-  // Filter records based on search
+  // Filter records based on search (only within user's own records)
   const filteredRecords = records.filter(
     (record) =>
       record.patient_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -72,19 +130,48 @@ const EcgUser: React.FC = () => {
       record.pid_no?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Load records on component mount
+  // Load records when user is authenticated and component mounts
   React.useEffect(() => {
-    loadRecords();
-  }, []);
+    if (user && !loading) {
+      loadRecords();
+    }
+  }, [user, loading]);
+
+  // Show loading state while authenticating
+  if (loading) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.loadingContainer}>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error or redirect if not authenticated
+  if (error || !user) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.errorContainer}>
+          <p>Please log in to view your ECG records.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.page}>
       <Sidebar onToggle={handleSidebarToggle} />
       <div className={styles.contentWrapper}>
         <div className={styles.header}>
-          <h1 className={styles.pageTitle}>ECG Records</h1>
+          <h1 className={styles.pageTitle}>My ECG Records</h1>
           <p className={styles.pageDescription}>
-            View your ECG records and medical reports
+            {userData && (
+              <>
+                View your ECG examination records and medical reports,{" "}
+                {userData.firstname}
+              </>
+            )}
           </p>
         </div>
 
@@ -94,7 +181,7 @@ const EcgUser: React.FC = () => {
             <div className={styles.searchContainer}>
               <input
                 type="text"
-                placeholder="Search by patient name, ID, or company..."
+                placeholder="Search your records by ID, PID number, or examination type..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className={styles.searchInput}
@@ -108,27 +195,33 @@ const EcgUser: React.FC = () => {
             <div className={styles.recordsHeader}>
               <div className={styles.recordsTitle}>
                 <h2 className={styles.sectionTitle}>
-                  Patient Records ({filteredRecords.length})
+                  Your Records ({filteredRecords.length})
                 </h2>
                 <p className={styles.recordsSubtitle}>
-                  View ECG results and reports
+                  Your personal ECG examination results
                 </p>
               </div>
               <button
                 onClick={loadRecords}
                 className={styles.refreshButton}
-                disabled={loading}
+                disabled={loadingRecords}
               >
-                {loading ? "Loading..." : "Refresh"}
+                {loadingRecords ? "Loading..." : "Refresh"}
               </button>
             </div>
 
             {filteredRecords.length === 0 ? (
               <div className={styles.noRecords}>
                 <div className={styles.noRecordsIcon}>📋</div>
-                <h3 className={styles.noRecordsTitle}>No Records Found</h3>
+                <h3 className={styles.noRecordsTitle}>
+                  {records.length === 0
+                    ? "No Records Found"
+                    : "No Matching Records"}
+                </h3>
                 <p className={styles.noRecordsText}>
-                  No ECG records available or adjust your search criteria.
+                  {records.length === 0
+                    ? "You don't have any ECG records yet."
+                    : "No records match your search criteria."}
                 </p>
               </div>
             ) : (
@@ -150,7 +243,7 @@ const EcgUser: React.FC = () => {
                           }}
                           className={styles.viewButton}
                         >
-                          View
+                          View Details
                         </button>
                       </div>
                     </div>
@@ -202,106 +295,129 @@ const EcgUser: React.FC = () => {
             </div>
             <div className={styles.modalContent}>
               <div className={styles.patientSection}>
-                <div className={styles.examSection}>
-                  <h4 className={styles.sectionSubtitle}>
-                    Examination Details
-                  </h4>
+                <h4 className={styles.sectionSubtitle}>Patient Information</h4>
+                <div className={styles.infoGrid}>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>Name:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.patient_name}
+                    </span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>Date of Birth:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.birth_date}
+                    </span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>Age:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.age}
+                    </span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>Gender:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.sex}
+                    </span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>Unique ID:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.uniqueId}
+                    </span>
+                  </div>
                   <div className={styles.infoItem}>
                     <span className={styles.infoLabel}>PID NO:</span>
                     <span className={styles.infoValue}>
                       {selectedRecord.pid_no}
                     </span>
                   </div>
+                </div>
+              </div>
 
+              <div className={styles.examSection}>
+                <h4 className={styles.sectionSubtitle}>Examination Details</h4>
+                <div className={styles.infoGrid}>
                   <div className={styles.infoItem}>
                     <span className={styles.infoLabel}>Report Date:</span>
                     <span className={styles.infoValue}>
                       {selectedRecord.date}
                     </span>
                   </div>
-                </div>
-              </div>
-              <h4 className={styles.sectionSubtitle}>Patient Information</h4>
-              <div className={styles.infoGrid}>
-                <div className={styles.infoItem}>
-                  <span className={styles.infoLabel}>Name:</span>
-                  <span className={styles.infoValue}>
-                    {selectedRecord.patient_name}
-                  </span>
-                </div>
-                <div className={styles.infoItem}>
-                  <span className={styles.infoLabel}>Date of Birth:</span>
-                  <span className={styles.infoValue}>
-                    {selectedRecord.birth_date}
-                  </span>
-                </div>
-                <div className={styles.infoItem}>
-                  <span className={styles.infoLabel}>Age:</span>
-                  <span className={styles.infoValue}>{selectedRecord.age}</span>
-                </div>
-                <div className={styles.infoItem}>
-                  <span className={styles.infoLabel}>Gender:</span>
-                  <span className={styles.infoValue}>{selectedRecord.sex}</span>
-                </div>
-
-                <div className={styles.infoItem}>
-                  <span className={styles.infoLabel}>Unique ID:</span>
-                  <span className={styles.infoValue}>
-                    {selectedRecord.uniqueId}
-                  </span>
-                </div>
-
-                <div className={styles.infoItem}>
-                  <span className={styles.infoLabel}>HR:</span>
-                  <span className={styles.infoValue}>{selectedRecord.hr}</span>
-                </div>
-
-                <div className={styles.infoItem}>
-                  <span className={styles.infoLabel}>BP:</span>
-                  <span className={styles.infoValue}>{selectedRecord.bp}</span>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>
+                      Referring Physician:
+                    </span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.referring_physician}
+                    </span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>HR:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.hr}
+                    </span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>BP:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.bp}
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              <h4 className={styles.sectionSubtitle}>Diagram Report</h4>
-
-              <div className={styles.infoItem}>
-                <span className={styles.infoLabel}>QRS:</span>
-                <span className={styles.infoValue}>{selectedRecord.qrs}</span>
+              <div className={styles.examSection}>
+                <h4 className={styles.sectionSubtitle}>ECG Measurements</h4>
+                <div className={styles.infoGrid}>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>QRS:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.qrs}
+                    </span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>QT/QTc:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.qt_qtc}
+                    </span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>PR:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.pr}
+                    </span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>P:</span>
+                    <span className={styles.infoValue}>{selectedRecord.p}</span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>RR/PP:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.rr_pp}
+                    </span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>P/QRS/T:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.pqrst}
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              <div className={styles.infoItem}>
-                <span className={styles.infoLabel}>QT/QTcBaZ:</span>
-                <span className={styles.infoValue}>
-                  {selectedRecord.qt_qtc}
-                </span>
-              </div>
-
-              <div className={styles.infoItem}>
-                <span className={styles.infoLabel}>PR:</span>
-                <span className={styles.infoValue}>{selectedRecord.pr}</span>
-              </div>
-
-              <div className={styles.infoItem}>
-                <span className={styles.infoLabel}>P:</span>
-                <span className={styles.infoValue}>{selectedRecord.p}</span>
-              </div>
-
-              <div className={styles.infoItem}>
-                <span className={styles.infoLabel}>RR/PP:</span>
-                <span className={styles.infoValue}>{selectedRecord.rr_pp}</span>
-              </div>
-
-              <div className={styles.infoItem}>
-                <span className={styles.infoLabel}>P/QRS/T:</span>
-                <span className={styles.infoValue}>{selectedRecord.pqrst}</span>
-              </div>
-            </div>
-
-            <div className={styles.interpretationSection}>
-              <h4 className={styles.sectionSubtitle}>Medical Interpretation</h4>
-              <div className={styles.interpretationText}>
-                {selectedRecord.interpretation}
-              </div>
+              {selectedRecord.interpretation && (
+                <div className={styles.interpretationSection}>
+                  <h4 className={styles.sectionSubtitle}>
+                    Medical Interpretation
+                  </h4>
+                  <div className={styles.interpretationText}>
+                    {selectedRecord.interpretation}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
