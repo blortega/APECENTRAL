@@ -4,17 +4,25 @@ import fitz  # PyMuPDF
 from typing import Dict
 from datetime import datetime
 import re
+import os
+
+
 
 app = FastAPI()
 
-# CORS setup for React frontend
+# Update your existing CORS middleware configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # React frontend origin
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],  # Add both localhost variants
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],  # Explicitly list methods
     allow_headers=["*"],
+    expose_headers=["*"]  # Add this to expose all headers
 )
+
+@app.get("/")
+async def root():
+    return {"message": "Medical Records API is running"}
 
 @app.post("/extract-xray")
 async def extract_xray(file: UploadFile = File(...)) -> Dict:
@@ -505,3 +513,226 @@ async def extract_ecg(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing ECG file: {str(e)}")
 
+import re
+import fitz
+import os
+import shutil
+from datetime import datetime
+from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
+from typing import Dict
+from pathlib import Path
+
+app = FastAPI()
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],  # Add your frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Create uploads directory if it doesn't exist
+UPLOAD_DIR = Path("uploaded_pdfs")
+UPLOAD_DIR.mkdir(exist_ok=True)
+
+@app.post("/extract-lipid-profile")
+async def options_handler():
+    return {"message": "OK"}
+async def extract_lipid_profile(file: UploadFile = File(...)):
+    content = await file.read()
+    pdf = fitz.open(stream=content, filetype="pdf")
+    text = "".join(page.get_text() for page in pdf)
+    pdf.close()
+    
+    result = parse_lipid_profile(text, file.filename)
+    
+    # Validate required fields
+    required_fields = [
+        'total_cholesterol', 'triglycerides', 
+        'hdl_cholesterol', 'ldl_cholesterol'
+    ]
+    
+    missing_fields = [
+        field for field in required_fields 
+        if not result.get(field, {}).get('result')
+    ]
+    
+    if missing_fields:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Missing required fields: {', '.join(missing_fields)}",
+            headers={"Access-Control-Allow-Origin": "http://localhost:5173"}
+        )
+    
+    return result
+
+@app.get("/download-pdf/{filename}")
+async def download_pdf(filename: str):
+    """Download the original PDF file"""
+    file_path = UPLOAD_DIR / filename
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="PDF file not found")
+    
+    return FileResponse(
+        path=file_path,
+        filename=filename,
+        media_type="application/pdf"
+    )
+
+def extract_patient_info(text: str, label: str, fallback: str = "") -> str:
+    """Extract patient information from PDF text"""
+    match = re.search(rf"{re.escape(label)}\s*[:\-]?\s*(.+)", text, re.IGNORECASE)
+    return match.group(1).strip() if match else fallback
+
+def extract_gender_age(text: str):
+    """Extract gender and age from the PDF text"""
+    match = re.search(r"Gender\s*/\s*Age\s*[:\-]?\s*(\w+)\s*/\s*(.+)", text)
+    if match:
+        return match.group(1).strip(), match.group(2).strip()
+    return "", ""
+
+def extract_lipid_value(text: str, test_name: str):
+    """
+    More robust extraction that handles multiple PDF formats
+    """
+    # Normalize text for easier matching
+    normalized_text = re.sub(r'\s+', ' ', text.strip()).lower()
+    test_name_lower = test_name.lower()
+    
+    # Define multiple pattern variations for each test
+    patterns = {
+        "alt/sgpt": [
+            r"alt\/sgpt\s*([hl]?)\s*([\d.]+)\s*(u\/l)\s*([\d.]+)\s*-\s*([\d.]+)",
+            r"alt\s*\(sgpt\)\s*:\s*([\d.]+)\s*(u\/l)\s*\(([\d.]+)\s*-\s*([\d.]+)\)",
+            r"alt\/sgpt\s*:\s*([\d.]+)\s*(u\/l)\s*ref:\s*([\d.]+)\s*-\s*([\d.]+)"
+        ],
+        "cholesterol (total)": [
+            r"cholesterol\s*\(total\)\s*([hl]?)\s*([\d.]+)\s*(mg\/dl)\s*([\d.]+)\s*-\s*([\d.]+)",
+            r"total cholesterol\s*:\s*([\d.]+)\s*(mg\/dl)\s*\(([\d.]+)\s*-\s*([\d.]+)\)"
+        ],
+        # Add similar patterns for other tests
+    }
+    
+    # Try all patterns for the test
+    for pattern in patterns.get(test_name_lower, []):
+        match = re.search(pattern, normalized_text, re.IGNORECASE)
+        if match:
+            groups = match.groups()
+            flag = groups[0] if len(groups) > 4 and groups[0] else ""
+            return {
+                "result": groups[1] if len(groups) > 1 else "",
+                "unit": groups[2] if len(groups) > 2 else "",
+                "reference_range": f"{groups[3]}-{groups[4]}" if len(groups) > 4 else "",
+                "flag": flag
+            }
+    
+    # Fallback: Search for test name and nearby values
+    test_pos = normalized_text.find(test_name_lower)
+    if test_pos != -1:
+        # Extract numbers near the test name
+        nearby_text = normalized_text[max(0, test_pos-50):test_pos+50]
+        numbers = re.findall(r'[\d.]+', nearby_text)
+        if numbers:
+            return {
+                "result": numbers[0],
+                "unit": "",
+                "reference_range": "",
+                "flag": ""
+            }
+    
+    return {
+        "result": "",
+        "unit": "",
+        "reference_range": "",
+        "flag": ""
+    }
+
+def get_clean_text(pdf_doc):
+    """Improved text extraction with layout preservation"""
+    text = ""
+    for page in pdf_doc:
+        # Get text blocks with their positions
+        blocks = page.get_text("blocks")
+        # Sort by vertical then horizontal position
+        blocks.sort(key=lambda b: (b[1], b[0]))
+        text += "\n".join(block[4] for block in blocks if block[4].strip())
+    return text
+
+def parse_lipid_profile(text: str, filename: str) -> Dict:
+    """Parse the lipid profile PDF and extract all relevant information"""
+    print("===== RAW PDF TEXT =====")
+    print(text[:1000])
+    print("=" * 50)
+    
+    gender, age = extract_gender_age(text)
+
+    result = {
+        # Patient Info
+        "patientName": extract_patient_info(text, "Name"),
+        "mrn": extract_patient_info(text, "MRN"),
+        "gender": gender,
+        "age": age,
+        "dob": extract_patient_info(text, "DOB"),
+        "collectionDateTime": extract_patient_info(text, "Collection Date/Time"),
+        "resultValidated": extract_patient_info(text, "Result Validated"),
+        "location": extract_patient_info(text, "Location"),
+
+        # Lipid Profile Fields
+        "alt_sgpt": extract_lipid_value(text, "ALT/SGPT"),
+        "total_cholesterol": extract_lipid_value(text, "Cholesterol (Total)"),
+        "triglycerides": extract_lipid_value(text, "Triglycerides"),
+        "hdl_cholesterol": extract_lipid_value(text, "Cholesterol HDL"),
+        "ldl_cholesterol": extract_lipid_value(text, "Cholesterol LDL"),
+        "vldl": extract_lipid_value(text, "VLDL"),
+
+        # Meta
+        "fileName": filename,
+        "uploadDate": datetime.utcnow().isoformat(),
+        "uniqueId": filename.replace(".pdf", "")
+    }
+    
+    # Debug: Print extracted values
+    print("===== EXTRACTED VALUES =====")
+    for key, value in result.items():
+        if isinstance(value, dict) and 'result' in value:
+            print(f"{key}: {value}")
+    print("=" * 50)
+    
+    return result
+
+# Test function with your actual data
+def test_with_actual_data():
+    """Test with the actual PDF data from your documents"""
+    
+    # First PDF data (GARCES)
+    pdf_text_1 = """TEST Result Unit Biological Reference Range
+Lipid Profile
+Cholesterol (Total) L 138.00 mg/dL 150 - 200
+Triglycerides 99.00 mg/dL 10 - 190
+Cholesterol HDL 54.0 mg/dL 40.0 - 75.0
+Cholesterol LDL 64.2 mg/dL 50 - 130
+VLDL L 19.80 mg/dL 20 - 30
+ALT/SGPT 13.0 U/L 4.0 - 36.0"""
+    
+    # Second PDF data (RADEN)
+    pdf_text_2 = """TEST Result Unit Biological Reference Range
+ALT/SGPT 21.0 U/L 4.0 - 36.0
+Lipid Profile
+Cholesterol (Total) 165.00 mg/dL 150 - 200
+Triglycerides 68.00 mg/dL 10 - 190
+Cholesterol HDL H 84.0 mg/dL 40.0 - 75.0
+Cholesterol LDL 67.4 mg/dL 50 - 130
+VLDL L 13.60 mg/dL 20 - 30"""
+    
+    print("=== TESTING FIRST PDF (GARCES) ===")
+    result1 = parse_lipid_profile(pdf_text_1, "GARCES.pdf")
+    
+    print("\n=== TESTING SECOND PDF (RADEN) ===")
+    result2 = parse_lipid_profile(pdf_text_2, "RADEN.pdf")
+
+# Uncomment to test:
+# test_with_actual_data()
