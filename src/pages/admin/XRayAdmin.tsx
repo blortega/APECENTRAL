@@ -1,693 +1,480 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import {
   collection,
+  addDoc,
   getDocs,
-  doc,
-  getDoc,
   query,
   where,
-  orderBy,
-  limit,
-  Timestamp,
+  deleteDoc,
+  doc,
 } from "firebase/firestore";
-import { db, auth } from "@/firebaseConfig";
-import { useAuthState } from "react-firebase-hooks/auth";
-import styles from "@/styles/Dashboard.module.css";
+import { db } from "@/firebaseConfig";
+import styles from "@/styles/XRay.module.css";
 import Sidebar from "@/components/Sidebar";
+import useGenerateActivity from "@/hooks/useGenerateActivity";
 
-interface StatsCard {
-  title: string;
-  value: string | number;
-  icon: string;
-  trend?: string;
-  trendValue?: string;
-  color?: string;
+interface XRayRecord {
+  id?: string;
+  uniqueId: string;
+  patientName: string;
+  dateOfBirth: string;
+  age: number;
+  gender: string;
+  company: string;
+  examination: string;
+  interpretation: string;
+  impression: string;
+  reportDate: string;
+  fileName: string;
+  uploadDate: string;
 }
 
-interface RecentActivity {
-  id: string;
-  action: string;
-  userName: string;
-  reportDetails: string;
-  timestamp: string;
-  status: "completed" | "pending" | "failed";
-}
-
-interface FirestoreActivity {
-  id: string;
-  firstname: string;
-  report: string;
-  reportDate: Timestamp;
-}
-
-const Dashboard: React.FC = () => {
+const XRayAdmin: React.FC = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [records, setRecords] = useState<XRayRecord[]>([]);
   const [loading, setLoading] = useState(false);
-  const [stats, setStats] = useState<StatsCard[]>([]);
-  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>(
-    []
-  );
-  const [xrayRecordsCount, setXrayRecordsCount] = useState(0);
-  const [employeeCount, setEmployeeCount] = useState(0);
-  const [last24HrReportsCount, setLast24HrReportsCount] = useState(0);
-  const [todaysUploadsCount, setTodaysUploadsCount] = useState(0);
+  const [uploadProgress, setUploadProgress] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedRecord, setSelectedRecord] = useState<XRayRecord | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // New state variables for previous period data
-  const [previousDayReportsCount, setPreviousDayReportsCount] = useState(0);
-  const [previousDayUploadsCount, setPreviousDayUploadsCount] = useState(0);
-  const [previousMonthEmployeeCount, setPreviousMonthEmployeeCount] =
-    useState(0);
-  const [previousMonthXrayCount, setPreviousMonthXrayCount] = useState(0);
-
-  const [userRole, setUserRole] = useState<string>("User");
-  const [user, userLoading] = useAuthState(auth);
+  // Initialize the activity hook
+  const {
+    generateActivity,
+    isLoading: activityLoading,
+    error: activityError,
+  } = useGenerateActivity();
 
   const handleSidebarToggle = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
   };
 
-  // Function to calculate trend
-  const calculateTrend = (current: number, previous: number) => {
-    if (previous === 0) {
-      return current > 0
-        ? { direction: "up", value: "New" }
-        : { direction: "same", value: "0%" };
-    }
+  // Handle file upload with activity logging
+  const handleFileUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const files = event.target.files;
+    if (!files) return;
 
-    const percentChange = ((current - previous) / previous) * 100;
-    const direction =
-      percentChange > 0 ? "up" : percentChange < 0 ? "down" : "same";
-    const value = `${Math.abs(Math.round(percentChange))}%`;
+    setLoading(true);
+    setUploadProgress("Starting upload...");
 
-    return { direction, value };
-  };
+    let uploadedCount = 0;
+    let totalFiles = files.length;
 
-  // Load current user's role
-  const loadUserRole = async () => {
-    if (!user?.uid) return;
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
 
-    try {
-      const userDocRef = doc(db, "users", user.uid);
-      const userDoc = await getDoc(userDocRef);
-
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        setUserRole(userData.role || "User");
+      if (file.type !== "application/pdf") {
+        alert(`File ${file.name} is not a PDF file`);
+        continue;
       }
-    } catch (error) {
-      console.error("Error loading user role:", error);
-      setUserRole("User"); // Fallback to default
-    }
-  };
 
-  // Load count of users with "Employee" role
-  const loadEmployeeCount = async () => {
-    try {
-      const employeeQuery = query(
-        collection(db, "users"),
-        where("role", "==", "Employee")
-      );
-      const querySnapshot = await getDocs(employeeQuery);
-      setEmployeeCount(querySnapshot.size);
-    } catch (error) {
-      console.error("Error loading employee count:", error);
-      setEmployeeCount(0); // Fallback to 0 on error
-    }
-  };
-
-  // Load previous month's employee count
-  const loadPreviousMonthEmployeeCount = async () => {
-    try {
-      // For simplicity, we'll use a rough approximation
-      // In a real scenario, you'd want to track when users were created
-      // and compare counts at specific time points
-      const employeeQuery = query(
-        collection(db, "users"),
-        where("role", "==", "Employee")
-      );
-      const querySnapshot = await getDocs(employeeQuery);
-
-      // This is a simplified approach - in reality you'd want to track
-      // historical data or use timestamps to get accurate previous counts
-      setPreviousMonthEmployeeCount(Math.max(0, querySnapshot.size - 2));
-    } catch (error) {
-      console.error("Error loading previous month employee count:", error);
-      setPreviousMonthEmployeeCount(0);
-    }
-  };
-
-  // Load count of X-Ray records
-  const loadXrayRecordsCount = async () => {
-    try {
-      const querySnapshot = await getDocs(collection(db, "xrayRecords"));
-      setXrayRecordsCount(querySnapshot.size);
-    } catch (error) {
-      console.error("Error loading X-Ray records count:", error);
-    }
-  };
-
-  // Load previous month's X-Ray records count
-  const loadPreviousMonthXrayCount = async () => {
-    try {
-      const querySnapshot = await getDocs(collection(db, "xrayRecords"));
-      // Simplified approach - in reality you'd filter by creation date
-      setPreviousMonthXrayCount(Math.max(0, querySnapshot.size - 3));
-    } catch (error) {
-      console.error("Error loading previous month X-Ray count:", error);
-      setPreviousMonthXrayCount(0);
-    }
-  };
-
-  // Load count of activities/reports from the last 24 hours
-  const loadLast24HrReportsCount = async () => {
-    try {
-      // Calculate timestamp for 24 hours ago
-      const now = new Date();
-      const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-      const twentyFourHoursAgoTimestamp =
-        Timestamp.fromDate(twentyFourHoursAgo);
-
-      // Query activities from the last 24 hours
-      const recentActivitiesQuery = query(
-        collection(db, "activities"),
-        where("reportDate", ">=", twentyFourHoursAgoTimestamp),
-        orderBy("reportDate", "desc")
+      setUploadProgress(
+        `Processing ${file.name}... (${i + 1}/${files.length})`
       );
 
-      const querySnapshot = await getDocs(recentActivitiesQuery);
-      setLast24HrReportsCount(querySnapshot.size);
-    } catch (error) {
-      console.error("Error loading 24-hour reports count:", error);
-      setLast24HrReportsCount(0);
-    }
-  };
+      const formData = new FormData();
+      formData.append("file", file);
 
-  // Load previous day's reports count (24-48 hours ago)
-  const loadPreviousDayReportsCount = async () => {
-    try {
-      const now = new Date();
-      const yesterdayStart = new Date(now.getTime() - 48 * 60 * 60 * 1000); // 48 hours ago
-      const yesterdayEnd = new Date(now.getTime() - 24 * 60 * 60 * 1000); // 24 hours ago
-
-      const previousDayQuery = query(
-        collection(db, "activities"),
-        where("reportDate", ">=", Timestamp.fromDate(yesterdayStart)),
-        where("reportDate", "<", Timestamp.fromDate(yesterdayEnd)),
-        orderBy("reportDate", "desc")
-      );
-
-      const querySnapshot = await getDocs(previousDayQuery);
-      setPreviousDayReportsCount(querySnapshot.size);
-    } catch (error) {
-      console.error("Error loading previous day reports:", error);
-      setPreviousDayReportsCount(0);
-    }
-  };
-
-  // Load count of activities/reports from the last 24 hours with "Added" or "Uploaded" keywords
-  const loadTodaysUploadsCount = async () => {
-    try {
-      // Calculate timestamp for 24 hours ago
-      const now = new Date();
-      const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-      const twentyFourHoursAgoTimestamp =
-        Timestamp.fromDate(twentyFourHoursAgo);
-
-      // Query activities from the last 24 hours
-      const recentActivitiesQuery = query(
-        collection(db, "activities"),
-        where("reportDate", ">=", twentyFourHoursAgoTimestamp),
-        orderBy("reportDate", "desc")
-      );
-
-      const querySnapshot = await getDocs(recentActivitiesQuery);
-      let uploadsCount = 0;
-
-      // Filter activities that contain "Added" or "Uploaded" keywords
-      querySnapshot.forEach((doc) => {
-        const data = doc.data() as FirestoreActivity;
-        const report = data.report.toLowerCase();
-
-        if (report.includes("added") || report.includes("uploaded")) {
-          uploadsCount++;
-        }
-      });
-
-      setTodaysUploadsCount(uploadsCount);
-    } catch (error) {
-      console.error("Error loading today's uploads count:", error);
-      setTodaysUploadsCount(0);
-    }
-  };
-
-  // Load previous day's uploads count
-  const loadPreviousDayUploadsCount = async () => {
-    try {
-      const now = new Date();
-      const yesterdayStart = new Date(now.getTime() - 48 * 60 * 60 * 1000);
-      const yesterdayEnd = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-
-      const previousDayQuery = query(
-        collection(db, "activities"),
-        where("reportDate", ">=", Timestamp.fromDate(yesterdayStart)),
-        where("reportDate", "<", Timestamp.fromDate(yesterdayEnd)),
-        orderBy("reportDate", "desc")
-      );
-
-      const querySnapshot = await getDocs(previousDayQuery);
-      let uploadsCount = 0;
-
-      querySnapshot.forEach((doc) => {
-        const data = doc.data() as FirestoreActivity;
-        const report = data.report.toLowerCase();
-        if (report.includes("added") || report.includes("uploaded")) {
-          uploadsCount++;
-        }
-      });
-
-      setPreviousDayUploadsCount(uploadsCount);
-    } catch (error) {
-      console.error("Error loading previous day uploads:", error);
-      setPreviousDayUploadsCount(0);
-    }
-  };
-
-  // Load recent activities from Firestore
-  const loadRecentActivities = async () => {
-    try {
-      const activitiesQuery = query(
-        collection(db, "activities"),
-        orderBy("reportDate", "desc"),
-        limit(5)
-      );
-
-      const querySnapshot = await getDocs(activitiesQuery);
-      const activities: RecentActivity[] = [];
-
-      querySnapshot.forEach((doc) => {
-        const data = doc.data() as FirestoreActivity;
-
-        // Convert Firestore timestamp to relative time
-        const now = new Date();
-        const activityDate = data.reportDate.toDate();
-        const timeDiff = now.getTime() - activityDate.getTime();
-
-        let timeString = "";
-        if (timeDiff < 60000) {
-          // Less than 1 minute
-          timeString = "Just now";
-        } else if (timeDiff < 3600000) {
-          // Less than 1 hour
-          const minutes = Math.floor(timeDiff / 60000);
-          timeString = `${minutes} min${minutes > 1 ? "s" : ""} ago`;
-        } else if (timeDiff < 86400000) {
-          // Less than 24 hours
-          const hours = Math.floor(timeDiff / 3600000);
-          timeString = `${hours} hour${hours > 1 ? "s" : ""} ago`;
-        } else {
-          // More than 24 hours
-          const days = Math.floor(timeDiff / 86400000);
-          timeString = `${days} day${days > 1 ? "s" : ""} ago`;
-        }
-
-        // Determine action type based on report content
-        let action = "Record Update";
-        if (data.report.toLowerCase().includes("cbc")) {
-          action = "CBC Record Added";
-        } else if (data.report.toLowerCase().includes("x-ray")) {
-          action = "X-Ray Record Added";
-        } else if (data.report.toLowerCase().includes("upload")) {
-          action = "File Upload";
-        } else if (data.report.toLowerCase().includes("analysis")) {
-          action = "Medical Analysis";
-        } else if (data.report.toLowerCase().includes("added")) {
-          action = "Record Added";
-        }
-
-        // Extract patient info from report if available
-        let reportDetails = data.report;
-        // Simplify the report for display - extract patient name if available
-        const patientMatch = data.report.match(/for ([A-Z\s]+) \(/);
-        if (patientMatch) {
-          reportDetails = `for ${patientMatch[1]}`;
-        }
-
-        // Assume completed status for existing records
-        // You can modify this logic based on your data structure
-        const status: "completed" | "pending" | "failed" = "completed";
-
-        activities.push({
-          id: doc.id,
-          action: action,
-          userName: data.firstname,
-          reportDetails: reportDetails,
-          timestamp: timeString,
-          status: status,
+      try {
+        const res = await fetch("http://localhost:8000/extract-xray", {
+          method: "POST",
+          body: formData,
         });
-      });
 
-      setRecentActivities(activities);
-    } catch (error) {
-      console.error("Error loading recent activities:", error);
-      // Fallback to empty array on error
-      setRecentActivities([]);
+        const data = await res.json();
+
+        if (data.error) {
+          console.error(`Error in ${file.name}:`, data.error);
+          continue;
+        }
+
+        // Check for duplicates in Firestore
+        const q = query(
+          collection(db, "xrayRecords"),
+          where("uniqueId", "==", data.uniqueId)
+        );
+        const existing = await getDocs(q);
+
+        if (!existing.empty) {
+          console.log(`Record already exists for ${data.patientName}`);
+          continue;
+        }
+
+        // Save to Firestore
+        await addDoc(collection(db, "xrayRecords"), data);
+        setUploadProgress(`Saved ${data.patientName}`);
+        uploadedCount++;
+
+        // Log individual upload activity
+        try {
+          await generateActivity(
+            "xray_upload",
+            `Uploaded X-Ray record for ${data.patientName} (${data.uniqueId})`
+          );
+        } catch (activityErr) {
+          console.error("Failed to log upload activity:", activityErr);
+        }
+      } catch (err) {
+        console.error("Upload error:", err);
+      }
+    }
+
+    await loadRecords();
+    setUploadProgress("Upload finished.");
+    setLoading(false);
+
+    // Log bulk upload activity if multiple files were uploaded
+    if (uploadedCount > 1) {
+      try {
+        await generateActivity(
+          "bulk_import",
+          `Bulk uploaded ${uploadedCount} X-Ray records from ${totalFiles} files`
+        );
+      } catch (activityErr) {
+        console.error("Failed to log bulk upload activity:", activityErr);
+      }
     }
   };
 
-  // Load dashboard statistics with real trend calculations
-  const loadStats = async () => {
+  // Load all records from Firestore
+  const loadRecords = async () => {
     try {
       setLoading(true);
+      const querySnapshot = await getDocs(collection(db, "xrayRecords"));
+      const loadedRecords: XRayRecord[] = [];
 
-      // Calculate real trends
-      const reportsTrend = calculateTrend(
-        last24HrReportsCount,
-        previousDayReportsCount
-      );
-      const uploadsTrend = calculateTrend(
-        todaysUploadsCount,
-        previousDayUploadsCount
-      );
-      const patientsTrend = calculateTrend(
-        employeeCount,
-        previousMonthEmployeeCount
-      );
-      const xrayTrend = calculateTrend(
-        xrayRecordsCount,
-        previousMonthXrayCount
+      querySnapshot.forEach((doc) => {
+        loadedRecords.push({ id: doc.id, ...doc.data() } as XRayRecord);
+      });
+
+      // Sort by upload date (newest first)
+      loadedRecords.sort(
+        (a, b) =>
+          new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime()
       );
 
-      const statsWithRealTrends: StatsCard[] = [
-        {
-          title: "Total Patients",
-          value: employeeCount,
-          icon: "👥",
-          trend: patientsTrend.direction,
-          trendValue: patientsTrend.value,
-          color: "blue",
-        },
-        {
-          title: "X-Ray Records",
-          value: xrayRecordsCount,
-          icon: "🩻",
-          trend: xrayTrend.direction,
-          trendValue: xrayTrend.value,
-          color: "green",
-        },
-        {
-          title: "24 Hr Reports",
-          value: last24HrReportsCount,
-          icon: "📊",
-          trend: reportsTrend.direction,
-          trendValue: reportsTrend.value,
-          color: "orange",
-        },
-        {
-          title: "24 Hr Uploads",
-          value: todaysUploadsCount,
-          icon: "📅",
-          trend: uploadsTrend.direction,
-          trendValue: uploadsTrend.value,
-          color: "purple",
-        },
-      ];
-
-      setStats(statsWithRealTrends);
+      setRecords(loadedRecords);
     } catch (error) {
-      console.error("Error loading dashboard stats:", error);
+      console.error("Error loading records:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (user && !userLoading) {
-      loadUserRole();
+  // Delete record with activity logging
+  const handleDeleteRecord = async (recordId: string) => {
+    if (!window.confirm("Are you sure you want to delete this record?")) return;
+
+    // Find the record to get patient info for logging
+    const recordToDelete = records.find((record) => record.id === recordId);
+
+    try {
+      await deleteDoc(doc(db, "xrayRecords", recordId));
+      await loadRecords();
+
+      // Log delete activity
+      try {
+        const patientInfo = recordToDelete
+          ? `${recordToDelete.patientName} (${recordToDelete.uniqueId})`
+          : "Unknown patient";
+        await generateActivity(
+          "xray_delete",
+          `Deleted X-Ray record for ${patientInfo}`
+        );
+      } catch (activityErr) {
+        console.error("Failed to log delete activity:", activityErr);
+      }
+    } catch (error) {
+      console.error("Error deleting record:", error);
     }
-  }, [user, userLoading]);
+  };
 
-  useEffect(() => {
-    const loadDashboardData = async () => {
-      await Promise.all([
-        loadXrayRecordsCount(),
-        loadEmployeeCount(),
-        loadLast24HrReportsCount(),
-        loadTodaysUploadsCount(),
-        loadPreviousDayReportsCount(),
-        loadPreviousDayUploadsCount(),
-        loadPreviousMonthEmployeeCount(),
-        loadPreviousMonthXrayCount(),
-        loadRecentActivities(),
-      ]);
-    };
+  // Handle viewing record details
+  const handleViewRecord = (record: XRayRecord) => {
+    setSelectedRecord(record);
+    setShowModal(true);
+  };
 
-    loadDashboardData();
-  }, []); // Load data on component mount
+  // Filter records based on search
+  const filteredRecords = records.filter(
+    (record) =>
+      record.patientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.uniqueId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.company?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-  // Update stats whenever counts change
-  useEffect(() => {
-    loadStats();
-  }, [
-    employeeCount,
-    xrayRecordsCount,
-    last24HrReportsCount,
-    todaysUploadsCount,
-    previousDayReportsCount,
-    previousDayUploadsCount,
-    previousMonthEmployeeCount,
-    previousMonthXrayCount,
-  ]);
+  // Load records on component mount
+  React.useEffect(() => {
+    loadRecords();
+  }, []);
 
   return (
     <div className={styles.page}>
       <Sidebar onToggle={handleSidebarToggle} />
-      <div
-        className={`${styles.contentWrapper} ${
-          isSidebarCollapsed ? styles.collapsed : ""
-        }`}
-      >
-        {/* Header Section */}
-        <header className={styles.header}>
-          <div className={styles.headerContent}>
-            <div className={styles.headerText}>
-              <h1 className={styles.pageTitle}>
-                Medical Dashboard
-                <span className={styles.titleAccent}>{userRole}</span>
-              </h1>
-              <p className={styles.pageDescription}>
-                Comprehensive overview of your medical practice
-              </p>
-            </div>
-            <div className={styles.headerActions}>
-              <button
-                className={styles.refreshBtn}
-                onClick={() => {
-                  loadRecentActivities();
-                  loadXrayRecordsCount();
-                  loadEmployeeCount();
-                  loadLast24HrReportsCount();
-                  loadTodaysUploadsCount();
-                  loadPreviousDayReportsCount();
-                  loadPreviousDayUploadsCount();
-                  loadPreviousMonthEmployeeCount();
-                  loadPreviousMonthXrayCount();
-                }}
-              >
-                <span className={styles.refreshIcon}>🔄</span>
-                Refresh
-              </button>
-              <div className={styles.lastUpdated}>
-                Last updated: {new Date().toLocaleTimeString()}
-              </div>
-            </div>
+      <div className={styles.contentWrapper}>
+        <div className={styles.header}>
+          <h1 className={styles.pageTitle}>X-Ray Records Management</h1>
+          <p className={styles.pageDescription}>
+            Upload and manage X-ray examination records for comprehensive
+            patient care
+          </p>
+        </div>
+
+        {/* Activity Status Indicator */}
+        {activityLoading && (
+          <div className={styles.activityStatus}>
+            <p>Logging activity...</p>
           </div>
-        </header>
+        )}
+        {activityError && (
+          <div className={styles.activityError}>
+            <p>Activity logging error: {activityError}</p>
+          </div>
+        )}
 
         <main className={styles.mainContent}>
-          {/* Loading Overlay */}
-          {loading && (
-            <div className={styles.loadingOverlay}>
-              <div className={styles.spinner}></div>
-            </div>
-          )}
-
-          {/* Stats Section */}
-          <section className={styles.section}>
+          {/* Upload Section */}
+          <section className={styles.uploadSection}>
             <div className={styles.sectionHeader}>
-              <h2 className={styles.sectionTitle}>
-                <span className={styles.sectionIcon}>📊</span>
-                Key Metrics
-              </h2>
+              <h2 className={styles.sectionTitle}>Upload X-Ray PDFs</h2>
               <p className={styles.sectionDescription}>
-                Real-time performance indicators
+                Select PDF files containing X-ray reports
               </p>
             </div>
-
-            <div className={styles.statsGrid}>
-              {stats.map((stat, index) => (
-                <div
-                  key={index}
-                  className={`${styles.statCard} ${
-                    styles[stat.color || "default"]
-                  }`}
-                  style={{ animationDelay: `${index * 0.1}s` }}
-                >
-                  <div className={styles.statCardInner}>
-                    <div className={styles.statHeader}>
-                      <div className={styles.statIcon}>{stat.icon}</div>
-                      {stat.trend && (
-                        <div
-                          className={`${styles.statTrend} ${
-                            styles[stat.trend]
-                          }`}
-                        >
-                          <span className={styles.trendIcon}>
-                            {stat.trend === "up"
-                              ? "↗"
-                              : stat.trend === "down"
-                              ? "↘"
-                              : "→"}
-                          </span>
-                          {stat.trendValue}
-                        </div>
-                      )}
-                    </div>
-                    <div className={styles.statContent}>
-                      <h3 className={styles.statTitle}>{stat.title}</h3>
-                      <p className={styles.statValue}>{stat.value}</p>
-                    </div>
-                  </div>
+            <div className={styles.uploadCard}>
+              <div className={styles.uploadArea}>
+                <div className={styles.uploadIcon}>📄</div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept=".pdf"
+                  onChange={handleFileUpload}
+                  className={styles.fileInput}
+                  disabled={loading}
+                />
+                <div className={styles.uploadText}>
+                  <p className={styles.uploadMainText}>
+                    Choose PDF files or drag and drop
+                  </p>
+                  <p className={styles.uploadSubText}>
+                    Multiple PDF files supported
+                  </p>
                 </div>
-              ))}
-            </div>
-          </section>
-
-          {/* Recent Activities Section */}
-          <section className={styles.section}>
-            <div className={styles.sectionHeader}>
-              <h2 className={styles.sectionTitle}>
-                <span className={styles.sectionIcon}>⚡</span>
-                Recent Activities
-              </h2>
-              <p className={styles.sectionDescription}>
-                Latest system events and patient interactions
-              </p>
-            </div>
-
-            <div className={styles.activitiesContainer}>
-              <div className={styles.activitiesList}>
-                {recentActivities.length > 0 ? (
-                  recentActivities.map((activity, index) => (
-                    <div
-                      key={activity.id}
-                      className={styles.activityItem}
-                      style={{ animationDelay: `${index * 0.05}s` }}
-                    >
-                      <div
-                        className={`${styles.activityIcon} ${
-                          styles[activity.status]
-                        }`}
-                      >
-                        {activity.status === "completed"
-                          ? "✓"
-                          : activity.status === "pending"
-                          ? "⏳"
-                          : "⚠️"}
-                      </div>
-                      <div className={styles.activityContent}>
-                        <div className={styles.activityHeader}>
-                          <h4 className={styles.activityAction}>
-                            {activity.action}
-                          </h4>
-                          <span className={styles.activityTimestamp}>
-                            {activity.timestamp}
-                          </span>
-                        </div>
-                        <p className={styles.activityDetails}>
-                          By: {activity.userName} • {activity.reportDetails}
-                        </p>
-                      </div>
-                      <div
-                        className={`${styles.activityStatus} ${
-                          styles[activity.status]
-                        }`}
-                      >
-                        {activity.status}
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className={styles.noActivities}>
-                    <p>No recent activities found.</p>
-                  </div>
-                )}
               </div>
+              {uploadProgress && (
+                <div className={styles.progressMessage}>{uploadProgress}</div>
+              )}
             </div>
           </section>
 
-          {/* Quick Actions Section */}
-          <section className={styles.section}>
-            <div className={styles.sectionHeader}>
-              <h2 className={styles.sectionTitle}>
-                <span className={styles.sectionIcon}>🚀</span>
-                Quick Actions
-              </h2>
-              <p className={styles.sectionDescription}>
-                Streamline your workflow with one-click actions
-              </p>
+          {/* Search Section */}
+          <section className={styles.searchSection}>
+            <div className={styles.searchContainer}>
+              <input
+                type="text"
+                placeholder="Search by patient name, ID, or company..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className={styles.searchInput}
+              />
+              <div className={styles.searchIcon}>🔍</div>
+            </div>
+          </section>
+
+          {/* Records Section */}
+          <section className={styles.recordsSection}>
+            <div className={styles.recordsHeader}>
+              <div className={styles.recordsTitle}>
+                <h2 className={styles.sectionTitle}>
+                  Patient Records ({filteredRecords.length})
+                </h2>
+                <p className={styles.recordsSubtitle}>
+                  View and manage X-ray examination results
+                </p>
+              </div>
+              <button
+                onClick={loadRecords}
+                className={styles.refreshButton}
+                disabled={loading}
+              >
+                {loading ? "Loading..." : "Refresh"}
+              </button>
             </div>
 
-            <div className={styles.quickActionsGrid}>
-              <button className={`${styles.quickAction} ${styles.primary}`}>
-                <div className={styles.actionIconWrapper}>
-                  <span className={styles.actionIcon}>🩺</span>
-                </div>
-                <div className={styles.actionContent}>
-                  <span className={styles.actionText}>New Patient</span>
-                  <span className={styles.actionSubtext}>
-                    Add patient record
-                  </span>
-                </div>
-              </button>
-              <button className={`${styles.quickAction} ${styles.secondary}`}>
-                <div className={styles.actionIconWrapper}>
-                  <span className={styles.actionIcon}>🩻</span>
-                </div>
-                <div className={styles.actionContent}>
-                  <span className={styles.actionText}>Upload X-Ray</span>
-                  <span className={styles.actionSubtext}>
-                    Import medical images
-                  </span>
-                </div>
-              </button>
-              <button className={`${styles.quickAction} ${styles.accent}`}>
-                <div className={styles.actionIconWrapper}>
-                  <span className={styles.actionIcon}>📝</span>
-                </div>
-                <div className={styles.actionContent}>
-                  <span className={styles.actionText}>Create Report</span>
-                  <span className={styles.actionSubtext}>
-                    Generate analysis
-                  </span>
-                </div>
-              </button>
-              <button className={`${styles.quickAction} ${styles.info}`}>
-                <div className={styles.actionIconWrapper}>
-                  <span className={styles.actionIcon}>🔍</span>
-                </div>
-                <div className={styles.actionContent}>
-                  <span className={styles.actionText}>Search Records</span>
-                  <span className={styles.actionSubtext}>
-                    Find patient data
-                  </span>
-                </div>
-              </button>
-            </div>
+            {filteredRecords.length === 0 ? (
+              <div className={styles.noRecords}>
+                <div className={styles.noRecordsIcon}>📋</div>
+                <h3 className={styles.noRecordsTitle}>No Records Found</h3>
+                <p className={styles.noRecordsText}>
+                  Upload some PDF files to get started or adjust your search
+                  criteria.
+                </p>
+              </div>
+            ) : (
+              <div className={styles.recordsGrid}>
+                {filteredRecords.map((record) => (
+                  <div key={record.id} className={styles.recordCard}>
+                    <div className={styles.recordHeader}>
+                      <div className={styles.patientInfo}>
+                        <h3 className={styles.patientName}>
+                          {record.patientName}
+                        </h3>
+                        <p className={styles.uniqueId}>{record.uniqueId}</p>
+                      </div>
+                      <div className={styles.recordActions}>
+                        <button
+                          onClick={() => handleViewRecord(record)}
+                          className={styles.viewButton}
+                        >
+                          View
+                        </button>
+                        <button
+                          onClick={() => handleDeleteRecord(record.id!)}
+                          className={styles.deleteButton}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                    <div className={styles.recordDetails}>
+                      <div className={styles.recordItem}>
+                        <span className={styles.recordLabel}>Age:</span>
+                        <span className={styles.recordValue}>{record.age}</span>
+                      </div>
+                      <div className={styles.recordItem}>
+                        <span className={styles.recordLabel}>Gender:</span>
+                        <span className={styles.recordValue}>
+                          {record.gender}
+                        </span>
+                      </div>
+                      <div className={styles.recordItem}>
+                        <span className={styles.recordLabel}>Company:</span>
+                        <span className={styles.recordValue}>
+                          {record.company}
+                        </span>
+                      </div>
+                      <div className={styles.recordItem}>
+                        <span className={styles.recordLabel}>Report Date:</span>
+                        <span className={styles.recordValue}>
+                          {record.reportDate}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
         </main>
       </div>
+
+      {/* Modal for viewing full record */}
+      {showModal && selectedRecord && (
+        <div
+          className={styles.modalOverlay}
+          onClick={() => setShowModal(false)}
+        >
+          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h3 className={styles.modalTitle}>X-Ray Report Details</h3>
+              <button
+                onClick={() => setShowModal(false)}
+                className={styles.closeButton}
+              >
+                ×
+              </button>
+            </div>
+            <div className={styles.modalContent}>
+              <div className={styles.patientSection}>
+                <h4 className={styles.sectionSubtitle}>Patient Information</h4>
+                <div className={styles.infoGrid}>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>Name:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.patientName}
+                    </span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>Date of Birth:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.dateOfBirth}
+                    </span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>Age:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.age}
+                    </span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>Gender:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.gender}
+                    </span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>Company:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.company}
+                    </span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>Unique ID:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.uniqueId}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className={styles.examSection}>
+                <h4 className={styles.sectionSubtitle}>Examination Details</h4>
+                <div className={styles.infoGrid}>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>Type:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.examination}
+                    </span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>Report Date:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.reportDate}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className={styles.interpretationSection}>
+                <h4 className={styles.sectionSubtitle}>
+                  Medical Interpretation
+                </h4>
+                <div className={styles.interpretationText}>
+                  {selectedRecord.interpretation}
+                </div>
+              </div>
+
+              {/* Added Impression Section */}
+              {selectedRecord.impression && (
+                <div className={styles.impressionSection}>
+                  <h4 className={styles.sectionSubtitle}>
+                    Clinical Impression
+                  </h4>
+                  <div className={styles.impressionText}>
+                    {selectedRecord.impression}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-export default Dashboard;
+export default XRayAdmin;
