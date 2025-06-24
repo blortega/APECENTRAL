@@ -11,11 +11,13 @@ import {
 import { db } from "@/firebaseConfig";
 import styles from "@/styles/XRay.module.css";
 import Sidebar from "@/components/Sidebar";
+import useGenerateActivity from "@/hooks/useGenerateActivity";
 
 interface LabValue {
   result: string;
   unit: string;
   reference_range: string;
+  flag: string;
 }
 
 interface UrinalysisRecord {
@@ -66,11 +68,18 @@ const UrinalysisAdmin: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Initialize activity logging hook
+  const {
+    generateActivity,
+    isLoading: activityLoading,
+    error: activityError,
+  } = useGenerateActivity();
+
   const handleSidebarToggle = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
   };
 
-  // Handle file upload
+  // Handle file upload with activity logging
   const handleFileUpload = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -79,6 +88,9 @@ const UrinalysisAdmin: React.FC = () => {
 
     setLoading(true);
     setUploadProgress("Starting upload...");
+
+    let successfulUploads = 0;
+    let totalFiles = files.length;
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -125,8 +137,23 @@ const UrinalysisAdmin: React.FC = () => {
         // Save to Firestore
         await addDoc(collection(db, "urinalysisRecords"), data);
         setUploadProgress(`Saved ${data.patientName}`);
+        successfulUploads++;
       } catch (err) {
         console.error("Upload error:", err);
+      }
+    }
+
+    // Log activity for successful uploads
+    if (successfulUploads > 0) {
+      try {
+        await generateActivity(
+          "urinalysis_add",
+          `Successfully uploaded ${successfulUploads} urinalysis record${
+            successfulUploads > 1 ? "s" : ""
+          } from ${totalFiles} file${totalFiles > 1 ? "s" : ""}`
+        );
+      } catch (err) {
+        console.error("Failed to log upload activity:", err);
       }
     }
 
@@ -135,7 +162,7 @@ const UrinalysisAdmin: React.FC = () => {
     setLoading(false);
   };
 
-  // Load all records from Firestore
+  // Load all records from Firestore with activity logging
   const loadRecords = async () => {
     try {
       setLoading(true);
@@ -160,16 +187,78 @@ const UrinalysisAdmin: React.FC = () => {
     }
   };
 
-  // Delete record
+  // Delete record with activity logging
   const handleDeleteRecord = async (recordId: string) => {
     if (!window.confirm("Are you sure you want to delete this record?")) return;
 
+    // Find the record to get patient name for logging
+    const recordToDelete = records.find((record) => record.id === recordId);
+    const patientName = recordToDelete?.patientName || "Unknown Patient";
+
     try {
       await deleteDoc(doc(db, "urinalysisRecords", recordId));
+
+      // Log delete activity
+      try {
+        await generateActivity(
+          "urinalysis_delete",
+          `Deleted urinalysis record for patient: ${patientName}`
+        );
+      } catch (err) {
+        console.error("Failed to log delete activity:", err);
+      }
+
       await loadRecords();
     } catch (error) {
       console.error("Error deleting record:", error);
     }
+  };
+
+  // Handle viewing record with activity logging
+  const handleViewRecord = async (record: UrinalysisRecord) => {
+    setSelectedRecord(record);
+    setShowModal(true);
+
+    // Log view activity
+    try {
+      await generateActivity(
+        "records_search",
+        `Viewed urinalysis record for patient: ${record.patientName}`
+      );
+    } catch (err) {
+      console.error("Failed to log view activity:", err);
+    }
+  };
+
+  // Handle search with activity logging
+  const handleSearch = async (searchValue: string) => {
+    setSearchTerm(searchValue);
+
+    // Only log if there's actual search content
+    if (searchValue.trim().length > 2) {
+      try {
+        await generateActivity(
+          "records_search",
+          `Searched urinalysis records with term: "${searchValue.trim()}"`
+        );
+      } catch (err) {
+        console.error("Failed to log search activity:", err);
+      }
+    }
+  };
+
+  // Handle refresh with activity logging
+  const handleRefresh = async () => {
+    try {
+      await generateActivity(
+        "records_filter",
+        "Refreshed urinalysis records list"
+      );
+    } catch (err) {
+      console.error("Failed to log refresh activity:", err);
+    }
+
+    await loadRecords();
   };
 
   // Filter records based on search
@@ -195,6 +284,18 @@ const UrinalysisAdmin: React.FC = () => {
           </p>
         </div>
 
+        {/* Activity Status Indicator */}
+        {activityLoading && (
+          <div className={styles.activityStatus}>
+            <p>Logging activity...</p>
+          </div>
+        )}
+        {activityError && (
+          <div className={styles.activityError}>
+            <p>Activity logging error: {activityError}</p>
+          </div>
+        )}
+
         <main className={styles.mainContent}>
           {/* Upload Section */}
           <section className={styles.uploadSection}>
@@ -214,7 +315,7 @@ const UrinalysisAdmin: React.FC = () => {
                   accept=".pdf"
                   onChange={handleFileUpload}
                   className={styles.fileInput}
-                  disabled={loading}
+                  disabled={loading || activityLoading}
                 />
                 <div className={styles.uploadText}>
                   <p className={styles.uploadMainText}>
@@ -238,7 +339,7 @@ const UrinalysisAdmin: React.FC = () => {
                 type="text"
                 placeholder="Search by patient name, ID, or company..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => handleSearch(e.target.value)}
                 className={styles.searchInput}
               />
               <div className={styles.searchIcon}>🔍</div>
@@ -257,9 +358,9 @@ const UrinalysisAdmin: React.FC = () => {
                 </p>
               </div>
               <button
-                onClick={loadRecords}
+                onClick={handleRefresh}
                 className={styles.refreshButton}
-                disabled={loading}
+                disabled={loading || activityLoading}
               >
                 {loading ? "Loading..." : "Refresh"}
               </button>
@@ -287,17 +388,16 @@ const UrinalysisAdmin: React.FC = () => {
                       </div>
                       <div className={styles.recordActions}>
                         <button
-                          onClick={() => {
-                            setSelectedRecord(record);
-                            setShowModal(true);
-                          }}
+                          onClick={() => handleViewRecord(record)}
                           className={styles.viewButton}
+                          disabled={activityLoading}
                         >
                           View
                         </button>
                         <button
                           onClick={() => handleDeleteRecord(record.id!)}
                           className={styles.deleteButton}
+                          disabled={activityLoading}
                         >
                           Delete
                         </button>
@@ -442,8 +542,9 @@ const UrinalysisAdmin: React.FC = () => {
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>Specific Gravity:</span>
                   <span className={styles.infoValue}>
-                    (Result: {selectedRecord.specific_gravity?.result || "N/A"}) (Unit:{" "}
-                    {selectedRecord.specific_gravity?.unit || "N/A"}) (Range:{" "}
+                    (Result: {selectedRecord.specific_gravity?.result || "N/A"})
+                    (Unit: {selectedRecord.specific_gravity?.unit || "N/A"})
+                    (Range:{" "}
                     {selectedRecord.specific_gravity?.reference_range || "N/A"})
                   </span>
                 </div>
@@ -478,8 +579,8 @@ const UrinalysisAdmin: React.FC = () => {
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>Urobilinogen:</span>
                   <span className={styles.infoValue}>
-                    (Result: {selectedRecord.urobilinogen?.result || "N/A"}) (Unit:{" "}
-                    {selectedRecord.urobilinogen?.unit || "N/A"}) (Range:{" "}
+                    (Result: {selectedRecord.urobilinogen?.result || "N/A"})
+                    (Unit: {selectedRecord.urobilinogen?.unit || "N/A"}) (Range:{" "}
                     {selectedRecord.urobilinogen?.reference_range || "N/A"})
                   </span>
                 </div>
@@ -496,9 +597,12 @@ const UrinalysisAdmin: React.FC = () => {
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>Leukocyte Esterase:</span>
                   <span className={styles.infoValue}>
-                    (Result: {selectedRecord.leukocyte_esterase?.result || "N/A"}) (Unit:{" "}
+                    (Result:{" "}
+                    {selectedRecord.leukocyte_esterase?.result || "N/A"}) (Unit:{" "}
                     {selectedRecord.leukocyte_esterase?.unit || "N/A"}) (Range:{" "}
-                    {selectedRecord.leukocyte_esterase?.reference_range || "N/A"})
+                    {selectedRecord.leukocyte_esterase?.reference_range ||
+                      "N/A"}
+                    )
                   </span>
                 </div>
 
@@ -525,8 +629,9 @@ const UrinalysisAdmin: React.FC = () => {
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>Epithelial Cells:</span>
                   <span className={styles.infoValue}>
-                    (Result: {selectedRecord.epithelial_cells?.result || "N/A"}) (Unit:{" "}
-                    {selectedRecord.epithelial_cells?.unit || "N/A"}) (Range:{" "}
+                    (Result: {selectedRecord.epithelial_cells?.result || "N/A"})
+                    (Unit: {selectedRecord.epithelial_cells?.unit || "N/A"})
+                    (Range:{" "}
                     {selectedRecord.epithelial_cells?.reference_range || "N/A"})
                   </span>
                 </div>
@@ -543,8 +648,8 @@ const UrinalysisAdmin: React.FC = () => {
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>Hyaline Cast:</span>
                   <span className={styles.infoValue}>
-                    (Result: {selectedRecord.hyaline_cast?.result || "N/A"}) (Unit:{" "}
-                    {selectedRecord.hyaline_cast?.unit || "N/A"}) (Range:{" "}
+                    (Result: {selectedRecord.hyaline_cast?.result || "N/A"})
+                    (Unit: {selectedRecord.hyaline_cast?.unit || "N/A"}) (Range:{" "}
                     {selectedRecord.hyaline_cast?.reference_range || "N/A"})
                   </span>
                 </div>
@@ -557,9 +662,6 @@ const UrinalysisAdmin: React.FC = () => {
                     {selectedRecord.remarks?.reference_range || "N/A"})
                   </span>
                 </div>
-
-
-
               </div>
             </div>
           </div>

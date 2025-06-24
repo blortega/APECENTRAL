@@ -1,7 +1,15 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
+import {
+  doc,
+  setDoc,
+  serverTimestamp,
+  query,
+  where,
+  collection,
+  getDocs,
+} from "firebase/firestore";
 import { auth, db } from "@/firebaseConfig";
 import styles from "@/styles/Register.module.css";
 import { assets } from "@/components/assets";
@@ -10,6 +18,7 @@ interface RegisterFormData {
   firstname: string;
   middleinitial: string;
   lastname: string;
+  username: string;
   email: string;
   employeeId: string;
   gender: string;
@@ -30,6 +39,7 @@ const Register: React.FC = () => {
     firstname: "",
     middleinitial: "",
     lastname: "",
+    username: "",
     email: "",
     employeeId: "",
     gender: "",
@@ -54,6 +64,11 @@ const Register: React.FC = () => {
       processedValue = value.toUpperCase();
     }
 
+    // Auto-lowercase username and remove spaces
+    if (name === "username") {
+      processedValue = value.toLowerCase().replace(/\s+/g, "");
+    }
+
     setFormData((prev) => ({
       ...prev,
       [name]: processedValue,
@@ -71,14 +86,29 @@ const Register: React.FC = () => {
           alert("Please enter your last name");
           return false;
         }
-        if (!formData.email.trim()) {
-          alert("Please enter your email address");
+        if (!formData.username.trim()) {
+          alert("Please enter a username");
           return false;
         }
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(formData.email)) {
-          alert("Please enter a valid email address");
+        if (formData.username.length < 3) {
+          alert("Username must be at least 3 characters long");
           return false;
+        }
+        // Username validation: only allow alphanumeric and underscore
+        const usernameRegex = /^[a-z0-9_]+$/;
+        if (!usernameRegex.test(formData.username)) {
+          alert(
+            "Username can only contain lowercase letters, numbers, and underscores"
+          );
+          return false;
+        }
+        // Email validation only if provided
+        if (formData.email.trim()) {
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(formData.email)) {
+            alert("Please enter a valid email address");
+            return false;
+          }
         }
         return true;
 
@@ -123,15 +153,34 @@ const Register: React.FC = () => {
     setFormStep((prev) => prev - 1);
   };
 
+  // Check if employee ID already exists by querying the employeeId field
   const checkEmployeeIdExists = async (
     employeeId: string
   ): Promise<boolean> => {
     try {
-      const docRef = doc(db, "users", employeeId);
-      const docSnap = await getDoc(docRef);
-      return docSnap.exists();
+      const q = query(
+        collection(db, "users"),
+        where("employeeId", "==", employeeId)
+      );
+      const querySnapshot = await getDocs(q);
+      return !querySnapshot.empty;
     } catch (error) {
       console.error("Error checking employee ID:", error);
+      return false;
+    }
+  };
+
+  // Check if username already exists
+  const checkUsernameExists = async (username: string): Promise<boolean> => {
+    try {
+      const q = query(
+        collection(db, "users"),
+        where("username", "==", username)
+      );
+      const querySnapshot = await getDocs(q);
+      return !querySnapshot.empty;
+    } catch (error) {
+      console.error("Error checking username:", error);
       return false;
     }
   };
@@ -156,25 +205,43 @@ const Register: React.FC = () => {
         return;
       }
 
+      // Check if username already exists
+      const usernameExists = await checkUsernameExists(formData.username);
+      if (usernameExists) {
+        alert("Username already exists. Please choose a different username.");
+        setIsLoading(false);
+        return;
+      }
+
+      // For Firebase Auth, we need an email. If none provided, create a temporary one
+      let authEmail = formData.email.trim();
+      if (!authEmail) {
+        // Create a temporary email using username + domain
+        authEmail = `${formData.username}@temp.apecentral.com`;
+      }
+
       // Create Firebase Auth user
       const userCredential = await createUserWithEmailAndPassword(
         auth,
-        formData.email,
+        authEmail,
         formData.password
       );
 
-      // Store user data in Firestore
-      await setDoc(doc(db, "users", formData.employeeId), {
+      // Store user data in Firestore using UID as document ID
+      // This aligns with your security rules that use request.auth.uid
+      await setDoc(doc(db, "users", userCredential.user.uid), {
         uid: userCredential.user.uid,
         firstname: formData.firstname,
         middleinitial: formData.middleinitial,
         lastname: formData.lastname,
-        email: formData.email,
+        username: formData.username,
+        email: formData.email.trim() || null, // Store null if no email provided
+        authEmail: authEmail, // Store the email used for authentication
         employeeId: formData.employeeId,
         gender: formData.gender,
         birthdate: formData.birthdate,
         createdAt: serverTimestamp(),
-        role: "Employee", // Default role
+        role: "Employee", // Default role - only Admin can change this later
       });
 
       alert("Registration successful! Please sign in with your new account.");
@@ -187,6 +254,10 @@ const Register: React.FC = () => {
         );
       } else if (error.code === "auth/weak-password") {
         alert("Password is too weak. Please choose a stronger password.");
+      } else if (error.code === "permission-denied") {
+        alert(
+          "Registration failed due to insufficient permissions. Please contact your administrator."
+        );
       } else {
         alert("Registration failed. Please try again.");
       }
@@ -281,8 +352,29 @@ const Register: React.FC = () => {
         />
       </div>
       <div className={styles.inputGroup}>
+        <label htmlFor="username" className={styles.label}>
+          Username *
+        </label>
+        <input
+          type="text"
+          id="username"
+          name="username"
+          value={formData.username}
+          onChange={handleInputChange}
+          required
+          className={styles.input}
+          placeholder="username123"
+          autoComplete="username"
+          minLength={3}
+        />
+        <small className={styles.inputHint}>
+          Lowercase letters, numbers, and underscores only. Minimum 3
+          characters.
+        </small>
+      </div>
+      <div className={styles.inputGroup}>
         <label htmlFor="email" className={styles.label}>
-          Email Address *
+          Email Address (Optional)
         </label>
         <input
           type="email"
@@ -290,11 +382,13 @@ const Register: React.FC = () => {
           name="email"
           value={formData.email}
           onChange={handleInputChange}
-          required
           className={styles.input}
           placeholder="your.email@company.com"
           autoComplete="email"
         />
+        <small className={styles.inputHint}>
+          Email is optional but recommended for account recovery.
+        </small>
       </div>
     </div>
   );
@@ -315,7 +409,6 @@ const Register: React.FC = () => {
           required
           className={styles.input}
           placeholder="EMP001"
-          autoComplete="username"
         />
       </div>
       <div className={styles.inputRow}>

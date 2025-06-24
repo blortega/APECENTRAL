@@ -11,6 +11,7 @@ import {
 import { db } from "@/firebaseConfig";
 import styles from "@/styles/XRay.module.css";
 import Sidebar from "@/components/Sidebar";
+import useGenerateActivity from "@/hooks/useGenerateActivity";
 
 interface XRayRecord {
   id?: string;
@@ -38,11 +39,18 @@ const XRayAdmin: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Initialize the activity hook
+  const {
+    generateActivity,
+    isLoading: activityLoading,
+    error: activityError,
+  } = useGenerateActivity();
+
   const handleSidebarToggle = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
   };
 
-  // Handle file upload
+  // Handle file upload with activity logging
   const handleFileUpload = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -51,6 +59,9 @@ const XRayAdmin: React.FC = () => {
 
     setLoading(true);
     setUploadProgress("Starting upload...");
+
+    let uploadedCount = 0;
+    let totalFiles = files.length;
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -95,6 +106,17 @@ const XRayAdmin: React.FC = () => {
         // Save to Firestore
         await addDoc(collection(db, "xrayRecords"), data);
         setUploadProgress(`Saved ${data.patientName}`);
+        uploadedCount++;
+
+        // Log individual upload activity
+        try {
+          await generateActivity(
+            "xray_upload",
+            `Uploaded X-Ray record for ${data.patientName} (${data.uniqueId})`
+          );
+        } catch (activityErr) {
+          console.error("Failed to log upload activity:", activityErr);
+        }
       } catch (err) {
         console.error("Upload error:", err);
       }
@@ -103,6 +125,18 @@ const XRayAdmin: React.FC = () => {
     await loadRecords();
     setUploadProgress("Upload finished.");
     setLoading(false);
+
+    // Log bulk upload activity if multiple files were uploaded
+    if (uploadedCount > 1) {
+      try {
+        await generateActivity(
+          "bulk_import",
+          `Bulk uploaded ${uploadedCount} X-Ray records from ${totalFiles} files`
+        );
+      } catch (activityErr) {
+        console.error("Failed to log bulk upload activity:", activityErr);
+      }
+    }
   };
 
   // Load all records from Firestore
@@ -130,16 +164,38 @@ const XRayAdmin: React.FC = () => {
     }
   };
 
-  // Delete record
+  // Delete record with activity logging
   const handleDeleteRecord = async (recordId: string) => {
     if (!window.confirm("Are you sure you want to delete this record?")) return;
+
+    // Find the record to get patient info for logging
+    const recordToDelete = records.find((record) => record.id === recordId);
 
     try {
       await deleteDoc(doc(db, "xrayRecords", recordId));
       await loadRecords();
+
+      // Log delete activity
+      try {
+        const patientInfo = recordToDelete
+          ? `${recordToDelete.patientName} (${recordToDelete.uniqueId})`
+          : "Unknown patient";
+        await generateActivity(
+          "xray_delete",
+          `Deleted X-Ray record for ${patientInfo}`
+        );
+      } catch (activityErr) {
+        console.error("Failed to log delete activity:", activityErr);
+      }
     } catch (error) {
       console.error("Error deleting record:", error);
     }
+  };
+
+  // Handle viewing record details
+  const handleViewRecord = (record: XRayRecord) => {
+    setSelectedRecord(record);
+    setShowModal(true);
   };
 
   // Filter records based on search
@@ -166,6 +222,18 @@ const XRayAdmin: React.FC = () => {
             patient care
           </p>
         </div>
+
+        {/* Activity Status Indicator */}
+        {activityLoading && (
+          <div className={styles.activityStatus}>
+            <p>Logging activity...</p>
+          </div>
+        )}
+        {activityError && (
+          <div className={styles.activityError}>
+            <p>Activity logging error: {activityError}</p>
+          </div>
+        )}
 
         <main className={styles.mainContent}>
           {/* Upload Section */}
@@ -259,10 +327,7 @@ const XRayAdmin: React.FC = () => {
                       </div>
                       <div className={styles.recordActions}>
                         <button
-                          onClick={() => {
-                            setSelectedRecord(record);
-                            setShowModal(true);
-                          }}
+                          onClick={() => handleViewRecord(record)}
                           className={styles.viewButton}
                         >
                           View

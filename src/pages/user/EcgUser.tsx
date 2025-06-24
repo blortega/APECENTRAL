@@ -5,18 +5,25 @@ import { auth, db } from "@/firebaseConfig";
 import styles from "@/styles/XRay.module.css";
 import Sidebar from "@/components/Sidebar";
 
-interface XRayRecord {
+interface EcgRecord {
   id?: string;
   uniqueId: string;
-  patientName: string;
-  dateOfBirth: string;
-  age: number;
-  gender: string;
-  company: string;
-  examination: string;
+  pid_no: string;
+  date: string;
+  patient_name: string;
+  referring_physician: string;
+  hr: string;
+  bp: string;
+  age: string;
+  sex: string;
+  birth_date: string;
+  qrs: string;
+  qt_qtc: string;
+  pr: string;
+  p: string;
+  rr_pp: string;
+  pqrst: string;
   interpretation: string;
-  impression: string;
-  reportDate: string;
   fileName: string;
   uploadDate: string;
 }
@@ -28,13 +35,13 @@ interface UserData {
   employeeId: string;
 }
 
-const XrayUser: React.FC = () => {
+const EcgUser: React.FC = () => {
   const [user, loading, error] = useAuthState(auth);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [records, setRecords] = useState<XRayRecord[]>([]);
+  const [records, setRecords] = useState<EcgRecord[]>([]);
   const [loadingRecords, setLoadingRecords] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedRecord, setSelectedRecord] = useState<XRayRecord | null>(null);
+  const [selectedRecord, setSelectedRecord] = useState<EcgRecord | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [userData, setUserData] = useState<UserData | null>(null);
 
@@ -78,20 +85,25 @@ const XrayUser: React.FC = () => {
 
       setUserData(currentUserData);
 
-      // Construct the full name to match against patientName
-      const userFullName =
-        `${currentUserData.lastname}, ${currentUserData.firstname}`.toUpperCase();
-
-      // Get all X-ray records
-      const querySnapshot = await getDocs(collection(db, "xrayRecords"));
-      const loadedRecords: XRayRecord[] = [];
+      // Get all ECG records
+      const querySnapshot = await getDocs(collection(db, "ecgRecords"));
+      const loadedRecords: EcgRecord[] = [];
 
       querySnapshot.forEach((doc) => {
-        const recordData = { id: doc.id, ...doc.data() } as XRayRecord;
+        const recordData = { id: doc.id, ...doc.data() } as EcgRecord;
 
         // Only include records that belong to the current user
         // Match by patient name (case-insensitive)
-        if (recordData.patientName?.toUpperCase() === userFullName) {
+        // Handle cases where middle name/initial might be present
+        const patientName = recordData.patient_name?.toUpperCase() || "";
+        const firstName = currentUserData.firstname.toUpperCase();
+        const lastName = currentUserData.lastname.toUpperCase();
+
+        // Check if patient name contains both first and last name
+        const matchesUser =
+          patientName.includes(firstName) && patientName.includes(lastName);
+
+        if (matchesUser) {
           loadedRecords.push(recordData);
         }
       });
@@ -113,9 +125,9 @@ const XrayUser: React.FC = () => {
   // Filter records based on search (only within user's own records)
   const filteredRecords = records.filter(
     (record) =>
-      record.patientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.patient_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       record.uniqueId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.company?.toLowerCase().includes(searchTerm.toLowerCase())
+      record.pid_no?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   // Load records when user is authenticated and component mounts
@@ -141,7 +153,7 @@ const XrayUser: React.FC = () => {
     return (
       <div className={styles.page}>
         <div className={styles.errorContainer}>
-          <p>Please log in to view your X-ray records.</p>
+          <p>Please log in to view your ECG records.</p>
         </div>
       </div>
     );
@@ -152,11 +164,11 @@ const XrayUser: React.FC = () => {
       <Sidebar onToggle={handleSidebarToggle} />
       <div className={styles.contentWrapper}>
         <div className={styles.header}>
-          <h1 className={styles.pageTitle}>My X-Ray Records</h1>
+          <h1 className={styles.pageTitle}>My ECG Records</h1>
           <p className={styles.pageDescription}>
             {userData && (
               <>
-                View your X-ray examination records and medical reports,{" "}
+                View your ECG examination records and medical reports,{" "}
                 {userData.firstname}
               </>
             )}
@@ -169,7 +181,7 @@ const XrayUser: React.FC = () => {
             <div className={styles.searchContainer}>
               <input
                 type="text"
-                placeholder="Search your records by ID, company, or examination type..."
+                placeholder="Search your records by ID, PID number, or examination type..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className={styles.searchInput}
@@ -186,7 +198,7 @@ const XrayUser: React.FC = () => {
                   Your Records ({filteredRecords.length})
                 </h2>
                 <p className={styles.recordsSubtitle}>
-                  Your personal X-ray examination results
+                  Your personal ECG examination results
                 </p>
               </div>
               <button
@@ -208,7 +220,7 @@ const XrayUser: React.FC = () => {
                 </h3>
                 <p className={styles.noRecordsText}>
                   {records.length === 0
-                    ? "You don't have any X-ray records yet."
+                    ? "You don't have any ECG records yet."
                     : "No records match your search criteria."}
                 </p>
               </div>
@@ -219,7 +231,7 @@ const XrayUser: React.FC = () => {
                     <div className={styles.recordHeader}>
                       <div className={styles.patientInfo}>
                         <h3 className={styles.patientName}>
-                          {record.patientName}
+                          {record.patient_name}
                         </h3>
                         <p className={styles.uniqueId}>{record.uniqueId}</p>
                       </div>
@@ -237,25 +249,23 @@ const XrayUser: React.FC = () => {
                     </div>
                     <div className={styles.recordDetails}>
                       <div className={styles.recordItem}>
+                        <span className={styles.recordLabel}>PID NO:</span>
+                        <span className={styles.recordValue}>
+                          {record.pid_no}
+                        </span>
+                      </div>
+                      <div className={styles.recordItem}>
                         <span className={styles.recordLabel}>Age:</span>
                         <span className={styles.recordValue}>{record.age}</span>
                       </div>
                       <div className={styles.recordItem}>
                         <span className={styles.recordLabel}>Gender:</span>
-                        <span className={styles.recordValue}>
-                          {record.gender}
-                        </span>
-                      </div>
-                      <div className={styles.recordItem}>
-                        <span className={styles.recordLabel}>Company:</span>
-                        <span className={styles.recordValue}>
-                          {record.company}
-                        </span>
+                        <span className={styles.recordValue}>{record.sex}</span>
                       </div>
                       <div className={styles.recordItem}>
                         <span className={styles.recordLabel}>Report Date:</span>
                         <span className={styles.recordValue}>
-                          {record.reportDate}
+                          {record.date}
                         </span>
                       </div>
                     </div>
@@ -275,7 +285,7 @@ const XrayUser: React.FC = () => {
         >
           <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
             <div className={styles.modalHeader}>
-              <h3 className={styles.modalTitle}>X-Ray Report Details</h3>
+              <h3 className={styles.modalTitle}>ECG Report Details</h3>
               <button
                 onClick={() => setShowModal(false)}
                 className={styles.closeButton}
@@ -290,13 +300,13 @@ const XrayUser: React.FC = () => {
                   <div className={styles.infoItem}>
                     <span className={styles.infoLabel}>Name:</span>
                     <span className={styles.infoValue}>
-                      {selectedRecord.patientName}
+                      {selectedRecord.patient_name}
                     </span>
                   </div>
                   <div className={styles.infoItem}>
                     <span className={styles.infoLabel}>Date of Birth:</span>
                     <span className={styles.infoValue}>
-                      {selectedRecord.dateOfBirth}
+                      {selectedRecord.birth_date}
                     </span>
                   </div>
                   <div className={styles.infoItem}>
@@ -308,19 +318,19 @@ const XrayUser: React.FC = () => {
                   <div className={styles.infoItem}>
                     <span className={styles.infoLabel}>Gender:</span>
                     <span className={styles.infoValue}>
-                      {selectedRecord.gender}
-                    </span>
-                  </div>
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Company:</span>
-                    <span className={styles.infoValue}>
-                      {selectedRecord.company}
+                      {selectedRecord.sex}
                     </span>
                   </div>
                   <div className={styles.infoItem}>
                     <span className={styles.infoLabel}>Unique ID:</span>
                     <span className={styles.infoValue}>
                       {selectedRecord.uniqueId}
+                    </span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>PID NO:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.pid_no}
                     </span>
                   </div>
                 </div>
@@ -330,36 +340,81 @@ const XrayUser: React.FC = () => {
                 <h4 className={styles.sectionSubtitle}>Examination Details</h4>
                 <div className={styles.infoGrid}>
                   <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Type:</span>
+                    <span className={styles.infoLabel}>Report Date:</span>
                     <span className={styles.infoValue}>
-                      {selectedRecord.examination}
+                      {selectedRecord.date}
                     </span>
                   </div>
                   <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Report Date:</span>
+                    <span className={styles.infoLabel}>
+                      Referring Physician:
+                    </span>
                     <span className={styles.infoValue}>
-                      {selectedRecord.reportDate}
+                      {selectedRecord.referring_physician}
+                    </span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>HR:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.hr}
+                    </span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>BP:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.bp}
                     </span>
                   </div>
                 </div>
               </div>
 
-              <div className={styles.interpretationSection}>
-                <h4 className={styles.sectionSubtitle}>
-                  Medical Interpretation
-                </h4>
-                <div className={styles.interpretationText}>
-                  {selectedRecord.interpretation}
+              <div className={styles.examSection}>
+                <h4 className={styles.sectionSubtitle}>ECG Measurements</h4>
+                <div className={styles.infoGrid}>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>QRS:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.qrs}
+                    </span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>QT/QTc:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.qt_qtc}
+                    </span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>PR:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.pr}
+                    </span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>P:</span>
+                    <span className={styles.infoValue}>{selectedRecord.p}</span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>RR/PP:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.rr_pp}
+                    </span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>P/QRS/T:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.pqrst}
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              {selectedRecord.impression && (
-                <div className={styles.impressionSection}>
+              {selectedRecord.interpretation && (
+                <div className={styles.interpretationSection}>
                   <h4 className={styles.sectionSubtitle}>
-                    Clinical Impression
+                    Medical Interpretation
                   </h4>
-                  <div className={styles.impressionText}>
-                    {selectedRecord.impression}
+                  <div className={styles.interpretationText}>
+                    {selectedRecord.interpretation}
                   </div>
                 </div>
               )}
@@ -371,4 +426,4 @@ const XrayUser: React.FC = () => {
   );
 };
 
-export default XrayUser;
+export default EcgUser;
