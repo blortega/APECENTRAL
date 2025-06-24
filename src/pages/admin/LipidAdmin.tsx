@@ -43,7 +43,9 @@ const LipidAdmin: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedRecord, setSelectedRecord] = useState<LipidRecord | null>(null);
+  const [selectedRecord, setSelectedRecord] = useState<LipidRecord | null>(
+    null
+  );
   const [showModal, setShowModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -51,7 +53,9 @@ const LipidAdmin: React.FC = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
   };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const files = event.target.files;
     if (!files) return;
 
@@ -61,13 +65,15 @@ const LipidAdmin: React.FC = () => {
     try {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        
+
         if (file.type !== "application/pdf") {
           alert(`File ${file.name} is not a PDF file`);
           continue;
         }
 
-        setUploadProgress(`Processing ${file.name}... (${i + 1}/${files.length})`);
+        setUploadProgress(
+          `Processing ${file.name}... (${i + 1}/${files.length})`
+        );
 
         const formData = new FormData();
         formData.append("file", file);
@@ -78,7 +84,7 @@ const LipidAdmin: React.FC = () => {
         });
 
         const result = await res.json();
-        
+
         console.log("Backend response:", result);
 
         if (!result.success) {
@@ -110,7 +116,7 @@ const LipidAdmin: React.FC = () => {
         await addDoc(collection(db, "lipidRecords"), result.data);
         setUploadProgress(`Saved ${result.data.patientName}`);
       }
-      
+
       setUploadProgress("Upload completed!");
     } catch (err) {
       console.error("Upload error:", err);
@@ -301,12 +307,12 @@ const LipidAdmin: React.FC = () => {
                       </div>
                       <div className={styles.recordItem}>
                         <span className={styles.recordLabel}>MRN:</span>
-                        <span className={styles.recordValue}>
-                          {record.mrn}
-                        </span>
+                        <span className={styles.recordValue}>{record.mrn}</span>
                       </div>
                       <div className={styles.recordItem}>
-                        <span className={styles.recordLabel}>Collection Date:</span>
+                        <span className={styles.recordLabel}>
+                          Collection Date:
+                        </span>
                         <span className={styles.recordValue}>
                           {record.collectionDateTime}
                         </span>
@@ -328,7 +334,9 @@ const LipidAdmin: React.FC = () => {
         >
           <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
             <div className={styles.modalHeader}>
-              <h3 className={styles.modalTitle}>Lipid Profile Report Details</h3>
+              <h3 className={styles.modalTitle}>
+                Lipid Profile Report Details
+              </h3>
               <button
                 onClick={() => setShowModal(false)}
                 className={styles.closeButton}
@@ -386,10 +394,14 @@ const LipidAdmin: React.FC = () => {
               </div>
 
               <div className={styles.examSection}>
-                <h4 className={styles.sectionSubtitle}>Collection & Validation</h4>
+                <h4 className={styles.sectionSubtitle}>
+                  Collection & Validation
+                </h4>
                 <div className={styles.infoGrid}>
                   <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Collection Date/Time:</span>
+                    <span className={styles.infoLabel}>
+                      Collection Date/Time:
+                    </span>
                     <span className={styles.infoValue}>
                       {selectedRecord.collectionDateTime}
                     </span>
@@ -406,35 +418,111 @@ const LipidAdmin: React.FC = () => {
               <div className={styles.resultsSection}>
                 <h4 className={styles.sectionSubtitle}>Test Results</h4>
                 <div className={styles.resultsTable}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead>
-                      <tr style={{ backgroundColor: '#f5f5f5' }}>
-                        <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Test</th>
-                        <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Result</th>
-                        <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Unit</th>
-                        <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Reference Range</th>
-                        <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Flag</th>
+                      <tr style={{ backgroundColor: "#f5f5f5" }}>
+                        <th
+                          style={{
+                            border: "1px solid #ddd",
+                            padding: "8px",
+                            textAlign: "left",
+                          }}
+                        >
+                          Test
+                        </th>
+                        <th
+                          style={{
+                            border: "1px solid #ddd",
+                            padding: "8px",
+                            textAlign: "left",
+                          }}
+                        >
+                          Result
+                        </th>
+                        <th
+                          style={{
+                            border: "1px solid #ddd",
+                            padding: "8px",
+                            textAlign: "left",
+                          }}
+                        >
+                          Unit
+                        </th>
+                        <th
+                          style={{
+                            border: "1px solid #ddd",
+                            padding: "8px",
+                            textAlign: "left",
+                          }}
+                        >
+                          Reference Range
+                        </th>
+                        <th
+                          style={{
+                            border: "1px solid #ddd",
+                            padding: "8px",
+                            textAlign: "left",
+                          }}
+                        >
+                          Flag
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
-                      {Object.entries(selectedRecord.testResults).map(([test, data]) => (
-                        <tr key={test}>
-                          <td style={{ border: '1px solid #ddd', padding: '8px' }}>{test}</td>
-                          <td style={{ border: '1px solid #ddd', padding: '8px', fontWeight: 'bold' }}>
-                            {data.result}
-                          </td>
-                          <td style={{ border: '1px solid #ddd', padding: '8px' }}>{data.unit}</td>
-                          <td style={{ border: '1px solid #ddd', padding: '8px' }}>{data.reference_range}</td>
-                          <td style={{ 
-                            border: '1px solid #ddd', 
-                            padding: '8px', 
-                            color: data.flag === 'H' ? 'red' : data.flag === 'L' ? 'blue' : 'black',
-                            fontWeight: data.flag ? 'bold' : 'normal'
-                          }}>
-                            {data.flag || '-'}
-                          </td>
-                        </tr>
-                      ))}
+                      {Object.entries(selectedRecord.testResults).map(
+                        ([test, data]) => (
+                          <tr key={test}>
+                            <td
+                              style={{
+                                border: "1px solid #ddd",
+                                padding: "8px",
+                              }}
+                            >
+                              {test}
+                            </td>
+                            <td
+                              style={{
+                                border: "1px solid #ddd",
+                                padding: "8px",
+                                fontWeight: "bold",
+                              }}
+                            >
+                              {data.result}
+                            </td>
+                            <td
+                              style={{
+                                border: "1px solid #ddd",
+                                padding: "8px",
+                              }}
+                            >
+                              {data.unit}
+                            </td>
+                            <td
+                              style={{
+                                border: "1px solid #ddd",
+                                padding: "8px",
+                              }}
+                            >
+                              {data.reference_range}
+                            </td>
+                            <td
+                              style={{
+                                border: "1px solid #ddd",
+                                padding: "8px",
+                                color:
+                                  data.flag === "H"
+                                    ? "red"
+                                    : data.flag === "L"
+                                    ? "blue"
+                                    : "black",
+                                fontWeight: data.flag ? "bold" : "normal",
+                              }}
+                            >
+                              {data.flag || "-"}
+                            </td>
+                          </tr>
+                        )
+                      )}
                     </tbody>
                   </table>
                 </div>

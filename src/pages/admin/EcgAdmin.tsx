@@ -11,6 +11,7 @@ import {
 import { db } from "@/firebaseConfig";
 import styles from "@/styles/XRay.module.css";
 import Sidebar from "@/components/Sidebar";
+import useGenerateActivity from "@/hooks/useGenerateActivity"; // Import the hook
 
 interface EcgRecord {
   id?: string;
@@ -45,11 +46,18 @@ const EcgAdmin: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Initialize the activity logging hook
+  const {
+    generateActivity,
+    isLoading: activityLoading,
+    error: activityError,
+  } = useGenerateActivity();
+
   const handleSidebarToggle = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
   };
 
-  // Handle file upload
+  // Handle file upload with activity logging
   const handleFileUpload = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -58,6 +66,9 @@ const EcgAdmin: React.FC = () => {
 
     setLoading(true);
     setUploadProgress("Starting upload...");
+
+    let uploadedCount = 0;
+    let totalFiles = files.length;
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -110,9 +121,32 @@ const EcgAdmin: React.FC = () => {
         // Save to Firestore
         await addDoc(collection(db, "ecgRecords"), data);
         setUploadProgress(`Saved ${data.patient_name}`);
+        uploadedCount++;
+
+        // Log individual upload activity with proper ECG terminology
+        try {
+          await generateActivity(
+            "ecg_upload",
+            `Uploaded ECG record for ${data.patient_name} (${data.uniqueId})`
+          );
+        } catch (activityErr) {
+          console.error("Failed to log upload activity:", activityErr);
+        }
       } catch (err) {
         console.error("Upload error:", err);
       }
+    }
+
+    // Log summary if multiple files processed
+    try {
+      if (uploadedCount > 1) {
+        await generateActivity(
+          "bulk_import",
+          `Bulk uploaded ${uploadedCount} ECG records from ${totalFiles} file(s)`
+        );
+      }
+    } catch (err) {
+      console.error("Failed to log bulk upload summary:", err);
     }
 
     await loadRecords();
@@ -120,8 +154,8 @@ const EcgAdmin: React.FC = () => {
     setLoading(false);
   };
 
-  // Load all records from Firestore
-  const loadRecords = async () => {
+  // Load all records from Firestore with activity logging
+  const loadRecords = async (logActivity = false) => {
     try {
       setLoading(true);
       const querySnapshot = await getDocs(collection(db, "ecgRecords"));
@@ -138,6 +172,18 @@ const EcgAdmin: React.FC = () => {
       );
 
       setRecords(loadedRecords);
+
+      // Log activity only when manually refreshing (not on component mount)
+      if (logActivity) {
+        try {
+          await generateActivity(
+            "records_search",
+            "Refreshed ECG records list"
+          );
+        } catch (err) {
+          console.error("Failed to log refresh activity:", err);
+        }
+      }
     } catch (error) {
       console.error("Error loading records:", error);
     } finally {
@@ -145,16 +191,65 @@ const EcgAdmin: React.FC = () => {
     }
   };
 
-  // Delete record
+  // Delete record with activity logging
   const handleDeleteRecord = async (recordId: string) => {
     if (!window.confirm("Are you sure you want to delete this record?")) return;
 
+    // Find the record to get patient details for logging
+    const recordToDelete = records.find((r) => r.id === recordId);
+    const patientName = recordToDelete?.patient_name || "Unknown Patient";
+    const uniqueId = recordToDelete?.uniqueId || "";
+
     try {
       await deleteDoc(doc(db, "ecgRecords", recordId));
+
+      // Log the delete activity with proper ECG terminology
+      try {
+        await generateActivity(
+          "ecg_delete",
+          `Deleted ECG record for ${patientName} (${uniqueId})`
+        );
+      } catch (err) {
+        console.error("Failed to log delete activity:", err);
+      }
+
       await loadRecords();
     } catch (error) {
       console.error("Error deleting record:", error);
     }
+  };
+
+  // Handle search with activity logging
+  const handleSearch = async (searchValue: string) => {
+    setSearchTerm(searchValue);
+
+    // Log search activity only if there's a meaningful search term
+    if (searchValue.trim().length > 2) {
+      try {
+        await generateActivity(
+          "records_search",
+          `Searched ECG records for: "${searchValue.trim()}"`
+        );
+      } catch (err) {
+        console.error("Failed to log search activity:", err);
+      }
+    } else if (searchValue.trim().length === 0) {
+      // Log when clearing search
+      try {
+        await generateActivity(
+          "records_filter",
+          "Cleared ECG records search filter"
+        );
+      } catch (err) {
+        console.error("Failed to log filter clear activity:", err);
+      }
+    }
+  };
+
+  // Handle record view (no activity logging needed)
+  const handleViewRecord = (record: EcgRecord) => {
+    setSelectedRecord(record);
+    setShowModal(true);
   };
 
   // Filter records based on search
@@ -165,9 +260,9 @@ const EcgAdmin: React.FC = () => {
       record.pid_no?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Load records on component mount
+  // Load records on component mount (without logging)
   React.useEffect(() => {
-    loadRecords();
+    loadRecords(false);
   }, []);
 
   return (
@@ -179,6 +274,17 @@ const EcgAdmin: React.FC = () => {
           <p className={styles.pageDescription}>
             Upload and manage ECG records for comprehensive patient care
           </p>
+          {/* Show activity logging status */}
+          {activityLoading && (
+            <div className={styles.activityStatus}>
+              <small>Logging activity...</small>
+            </div>
+          )}
+          {activityError && (
+            <div className={styles.activityError}>
+              <small>Activity logging error: {activityError}</small>
+            </div>
+          )}
         </div>
 
         <main className={styles.mainContent}>
@@ -200,7 +306,7 @@ const EcgAdmin: React.FC = () => {
                   accept=".pdf"
                   onChange={handleFileUpload}
                   className={styles.fileInput}
-                  disabled={loading}
+                  disabled={loading || activityLoading}
                 />
                 <div className={styles.uploadText}>
                   <p className={styles.uploadMainText}>
@@ -224,7 +330,7 @@ const EcgAdmin: React.FC = () => {
                 type="text"
                 placeholder="Search by patient name, ID, or company..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => handleSearch(e.target.value)}
                 className={styles.searchInput}
               />
               <div className={styles.searchIcon}>🔍</div>
@@ -243,9 +349,9 @@ const EcgAdmin: React.FC = () => {
                 </p>
               </div>
               <button
-                onClick={loadRecords}
+                onClick={() => loadRecords(true)}
                 className={styles.refreshButton}
-                disabled={loading}
+                disabled={loading || activityLoading}
               >
                 {loading ? "Loading..." : "Refresh"}
               </button>
@@ -273,10 +379,7 @@ const EcgAdmin: React.FC = () => {
                       </div>
                       <div className={styles.recordActions}>
                         <button
-                          onClick={() => {
-                            setSelectedRecord(record);
-                            setShowModal(true);
-                          }}
+                          onClick={() => handleViewRecord(record)}
                           className={styles.viewButton}
                         >
                           View
@@ -284,6 +387,7 @@ const EcgAdmin: React.FC = () => {
                         <button
                           onClick={() => handleDeleteRecord(record.id!)}
                           className={styles.deleteButton}
+                          disabled={activityLoading}
                         >
                           Delete
                         </button>
