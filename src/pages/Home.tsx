@@ -49,10 +49,7 @@ export default function Home() {
               Create Account
             </Link>
             <Link to="/login" className={styles.secondaryButton}>
-              Patient Login
-            </Link>
-            <Link to="/xray" className={styles.secondaryButton}>
-              X-Ray Viewer
+              Login
             </Link>
           </div>
 
