@@ -12,6 +12,7 @@ import {
 } from "firebase/firestore";
 import { db, auth } from "@/firebaseConfig";
 import { useAuthState } from "react-firebase-hooks/auth";
+import { useNavigate } from "react-router-dom";
 import styles from "@/styles/Dashboard.module.css";
 import Sidebar from "@/components/Sidebar";
 
@@ -61,6 +62,8 @@ const Dashboard: React.FC = () => {
 
   const [userRole, setUserRole] = useState<string>("User");
   const [user, userLoading] = useAuthState(auth);
+
+  const navigate = useNavigate();
 
   const handleSidebarToggle = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
@@ -638,18 +641,24 @@ const Dashboard: React.FC = () => {
             </div>
 
             <div className={styles.quickActionsGrid}>
-              <button className={`${styles.quickAction} ${styles.primary}`}>
+              <button
+                className={`${styles.quickAction} ${styles.primary}`}
+                onClick={() => navigate("/cbcadmin")}
+              >
                 <div className={styles.actionIconWrapper}>
-                  <span className={styles.actionIcon}>🩺</span>
+                  <span className={styles.actionIcon}>🩸</span>
                 </div>
                 <div className={styles.actionContent}>
-                  <span className={styles.actionText}>New Patient</span>
+                  <span className={styles.actionText}>Upload CBC</span>
                   <span className={styles.actionSubtext}>
                     Add patient record
                   </span>
                 </div>
               </button>
-              <button className={`${styles.quickAction} ${styles.secondary}`}>
+              <button
+                className={`${styles.quickAction} ${styles.secondary}`}
+                onClick={() => navigate("/xrayadmin")}
+              >
                 <div className={styles.actionIconWrapper}>
                   <span className={styles.actionIcon}>🩻</span>
                 </div>
@@ -660,23 +669,29 @@ const Dashboard: React.FC = () => {
                   </span>
                 </div>
               </button>
-              <button className={`${styles.quickAction} ${styles.accent}`}>
+              <button
+                className={`${styles.quickAction} ${styles.accent}`}
+                onClick={() => navigate("/ecgadmin")}
+              >
                 <div className={styles.actionIconWrapper}>
-                  <span className={styles.actionIcon}>📝</span>
+                  <span className={styles.actionIcon}>💓</span>
                 </div>
                 <div className={styles.actionContent}>
-                  <span className={styles.actionText}>Create Report</span>
+                  <span className={styles.actionText}>Upload ECG</span>
                   <span className={styles.actionSubtext}>
                     Generate analysis
                   </span>
                 </div>
               </button>
-              <button className={`${styles.quickAction} ${styles.info}`}>
+              <button
+                className={`${styles.quickAction} ${styles.info}`}
+                onClick={() => navigate("/urinalysisadmin")}
+              >
                 <div className={styles.actionIconWrapper}>
-                  <span className={styles.actionIcon}>🔍</span>
+                  <span className={styles.actionIcon}>🔬</span>
                 </div>
                 <div className={styles.actionContent}>
-                  <span className={styles.actionText}>Search Records</span>
+                  <span className={styles.actionText}>Upload Urinalysis</span>
                   <span className={styles.actionSubtext}>
                     Find patient data
                   </span>
