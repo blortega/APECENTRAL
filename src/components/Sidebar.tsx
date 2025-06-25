@@ -246,6 +246,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
           label: "Lipid Admin",
           description: "Lipid Profile Management",
         },
+        {
+          path: "/medexamadmin",
+          icon: "🔬",
+          label: "Medical Exam Admin",
+          description: "Medical Exam Management",
+        },
       ];
     } else {
       return [

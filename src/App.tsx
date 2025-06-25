@@ -17,6 +17,7 @@ import CbcUser from "@/pages/user/CbcUser";
 import UrinalysisUser from "@/pages/user/UrinalysisUser";
 import EcgUser from "@/pages/user/EcgUser";
 import LipidAdmin from "./pages/admin/LipidAdmin";
+import MedExamAdmin from "@/pages/admin/MedExamAdmin";
 
 interface UserData {
   email: string;
@@ -197,6 +198,19 @@ function App() {
             userRole={userData?.role}
           >
             <LipidAdmin />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/medexamadmin"
+        element={
+          <ProtectedRoute
+            isAuthenticated={isAuthenticated}
+            isLoading={isLoading}
+            requiredRole="Admin"
+            userRole={userData?.role}
+          >
+            <MedExamAdmin />
           </ProtectedRoute>
         }
       />
