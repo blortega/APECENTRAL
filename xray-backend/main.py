@@ -1,11 +1,13 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 import fitz  # PyMuPDF
 from typing import Dict
 from datetime import datetime
 import re
 import os
-
+from pathlib import Path
+import shutil
 
 
 app = FastAPI()
@@ -477,14 +479,13 @@ async def extract_ecg(file: UploadFile = File(...)):
         print("Extracted ECG text:\n", text)
 
         def extract(pattern, default=""):
-                match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
-                return match.group(1).strip() if match and match.group(1) else default
-
+            match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE | re.DOTALL)
+            return match.group(1).strip() if match and match.group(1) else default
 
         extracted_data = {
             "pid_no": extract(r"PID\s*No\s*[:\-]?\s*(\d+)"),
             "date": extract(r"Date\s*[:\-]?\s*([0-9]{1,2}-[A-Z]{3}-[0-9]{4})"),
-            "patient_name": extract(r"Patient(?:’|')?s\s*Name\s*[:\-]?\s*([A-Z ]+)"),
+            "patient_name": extract(r"Patient(?:'|')?s\s*Name\s*[:\-]?\s*([A-Z ]+)"),
             "referring_physician": extract(r"Referring\s*Physician\s*[:\-]?\s*([A-Z ]+)\s+Birth"),
             "hr": extract(r"HR\s*[:\-]?\s*(\d+\s*bpm)"),
             "bp": extract(r"BP\s*[:\-]?\s*([\d]+\/[\d]+\s*mmHg)"),
@@ -496,12 +497,18 @@ async def extract_ecg(file: UploadFile = File(...)):
             "pr": extract(r"\bPR\s+(\d+\s*ms)"),
             "p": extract(r"^\s*P\s+(\d+\s*ms)", default=""),  # anchored line
             "rr_pp": extract(r"RR/PP\s+([\d]+\/[\d]+\s*ms)"),
-            "pqrst": extract(r"P/QRS/T\s+([\d\/ ]+degrees)"),
-            "interpretation": extract(r"INTERPRETATION\s*[:\-]?\s*([\s\S]+?)\n\n|$", default="").split("\n")[0],
+            # FIXED: P/QRS/T pattern - handles the degrees format properly
+            "pqrst": extract(r"P/QRS/T\s+([\d\-\/\s]+)\s*degrees"),
+            # FIXED: Interpretation pattern - stops before doctor's name/title
+            "interpretation": extract(r"INTERPRETATION\s*[:\-]?\s*\n?\s*([^A-Z\n]*(?:[a-z][^A-Z\n]*)*?)(?=\s+[A-Z]{2,}(?:\s+[A-Z]+)*\s*,?\s*(?:MD|CARDIOLOGIST)|$)")
+        }
+
+        # Add metadata
+        extracted_data.update({
             "fileName": file.filename,
             "uploadDate": datetime.utcnow().isoformat(),
             "uniqueId": file.filename.replace(".pdf", "")  # ✅ required for Firestore lookup
-        }
+        })
 
         # Clean up values (except fileName and uploadDate)
         for key, value in extracted_data.items():
@@ -512,61 +519,25 @@ async def extract_ecg(file: UploadFile = File(...)):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing ECG file: {str(e)}")
-
-import re
-import fitz
-import os
-import shutil
-from datetime import datetime
-from fastapi import FastAPI, File, UploadFile, HTTPException
-from fastapi.responses import FileResponse
-from fastapi.middleware.cors import CORSMiddleware
-from typing import Dict
-from pathlib import Path
-
-app = FastAPI()
-
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Add your frontend URL
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
+    
 # Create uploads directory if it doesn't exist
 UPLOAD_DIR = Path("uploaded_pdfs")
 UPLOAD_DIR.mkdir(exist_ok=True)
 
 @app.post("/extract-lipid-profile")
-async def options_handler():
-    return {"message": "OK"}
-async def extract_lipid_profile(file: UploadFile = File(...)):
+async def extract_lipid_profile(file: UploadFile = File(...)) -> Dict:
     content = await file.read()
     pdf = fitz.open(stream=content, filetype="pdf")
     text = "".join(page.get_text() for page in pdf)
     pdf.close()
     
+    # Save the PDF file locally
+    file_path = UPLOAD_DIR / file.filename
+    with open(file_path, "wb") as f:
+        f.write(content)
+    
     result = parse_lipid_profile(text, file.filename)
-    
-    # Validate required fields
-    required_fields = [
-        'total_cholesterol', 'triglycerides', 
-        'hdl_cholesterol', 'ldl_cholesterol'
-    ]
-    
-    missing_fields = [
-        field for field in required_fields 
-        if not result.get(field, {}).get('result')
-    ]
-    
-    if missing_fields:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Missing required fields: {', '.join(missing_fields)}",
-            headers={"Access-Control-Allow-Origin": "http://localhost:5173"}
-        )
+    result["pdf_path"] = str(file_path)  # Add PDF path to result
     
     return result
 
@@ -597,53 +568,178 @@ def extract_gender_age(text: str):
 
 def extract_lipid_value(text: str, test_name: str):
     """
-    More robust extraction that handles multiple PDF formats
+    Enhanced extraction that handles different PDF formats and flag positions.
     """
-    # Normalize text for easier matching
-    normalized_text = re.sub(r'\s+', ' ', text.strip()).lower()
-    test_name_lower = test_name.lower()
+    print(f"Looking for test: {test_name}")
     
-    # Define multiple pattern variations for each test
-    patterns = {
-        "alt/sgpt": [
-            r"alt\/sgpt\s*([hl]?)\s*([\d.]+)\s*(u\/l)\s*([\d.]+)\s*-\s*([\d.]+)",
-            r"alt\s*\(sgpt\)\s*:\s*([\d.]+)\s*(u\/l)\s*\(([\d.]+)\s*-\s*([\d.]+)\)",
-            r"alt\/sgpt\s*:\s*([\d.]+)\s*(u\/l)\s*ref:\s*([\d.]+)\s*-\s*([\d.]+)"
-        ],
-        "cholesterol (total)": [
-            r"cholesterol\s*\(total\)\s*([hl]?)\s*([\d.]+)\s*(mg\/dl)\s*([\d.]+)\s*-\s*([\d.]+)",
-            r"total cholesterol\s*:\s*([\d.]+)\s*(mg\/dl)\s*\(([\d.]+)\s*-\s*([\d.]+)\)"
-        ],
-        # Add similar patterns for other tests
-    }
+    # Clean the text for better matching
+    cleaned_text = re.sub(r'\s+', ' ', text.strip())
     
-    # Try all patterns for the test
-    for pattern in patterns.get(test_name_lower, []):
-        match = re.search(pattern, normalized_text, re.IGNORECASE)
-        if match:
-            groups = match.groups()
-            flag = groups[0] if len(groups) > 4 and groups[0] else ""
-            return {
-                "result": groups[1] if len(groups) > 1 else "",
-                "unit": groups[2] if len(groups) > 2 else "",
-                "reference_range": f"{groups[3]}-{groups[4]}" if len(groups) > 4 else "",
-                "flag": flag
-            }
+    # Handle ALT/SGPT (can appear anywhere in the document)
+    if test_name.lower() in ["alt/sgpt", "alt", "sgpt"]:
+        patterns = [
+            # Pattern 1: ALT/SGPT 21.0 U/L 4.0 - 36.0
+            r"ALT/SGPT\s+([HLN])?\s*([\d.]+)\s+(U/L)\s+([\d.]+ - [\d.]+)",
+            # Pattern 2: ALT 13.0 U/L 4.0 - 36.0 (without /SGPT)
+            r"(?<!/)ALT(?!/)\s+([HLN])?\s*([\d.]+)\s+(U/L)\s+([\d.]+ - [\d.]+)",
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                groups = match.groups()
+                if len(groups) == 4:  # Has flag
+                    return {
+                        "result": groups[1],
+                        "unit": groups[2],
+                        "reference_range": groups[3],
+                        "flag": groups[0] if groups[0] else ""
+                    }
+                else:  # No flag
+                    return {
+                        "result": groups[0],
+                        "unit": groups[1],
+                        "reference_range": groups[2],
+                        "flag": ""
+                    }
     
-    # Fallback: Search for test name and nearby values
-    test_pos = normalized_text.find(test_name_lower)
-    if test_pos != -1:
-        # Extract numbers near the test name
-        nearby_text = normalized_text[max(0, test_pos-50):test_pos+50]
-        numbers = re.findall(r'[\d.]+', nearby_text)
-        if numbers:
-            return {
-                "result": numbers[0],
-                "unit": "",
-                "reference_range": "",
-                "flag": ""
-            }
+    # Handle Cholesterol (Total) - more flexible pattern
+    if test_name.lower() in ["cholesterol (total)", "total cholesterol", "cholesterol"]:
+        patterns = [
+            # Pattern 1: Cholesterol (Total) L 138.00 mg/dL 150 - 200
+            r"Cholesterol\s*\(Total\)\s+([HLN])\s+([\d.]+)\s+(mg/dL)\s+([\d.]+ - [\d.]+)",
+            # Pattern 2: Cholesterol (Total) 165.00 mg/dL 150 - 200 (no flag)
+            r"Cholesterol\s*\(Total\)\s+([\d.]+)\s+(mg/dL)\s+([\d.]+ - [\d.]+)",
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                groups = match.groups()
+                if len(groups) == 4:  # Has flag
+                    return {
+                        "result": groups[1],
+                        "unit": groups[2],
+                        "reference_range": groups[3],
+                        "flag": groups[0]
+                    }
+                else:  # No flag
+                    return {
+                        "result": groups[0],
+                        "unit": groups[1],
+                        "reference_range": groups[2],
+                        "flag": ""
+                    }
     
+    # Handle Triglycerides
+    if test_name.lower() == "triglycerides":
+        patterns = [
+            r"Triglycerides\s+([HLN])\s+([\d.]+)\s+(mg/dL)\s+([\d.]+ - [\d.]+)",
+            r"Triglycerides\s+([\d.]+)\s+(mg/dL)\s+([\d.]+ - [\d.]+)",
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                groups = match.groups()
+                if len(groups) == 4:  # Has flag
+                    return {
+                        "result": groups[1],
+                        "unit": groups[2],
+                        "reference_range": groups[3],
+                        "flag": groups[0]
+                    }
+                else:  # No flag
+                    return {
+                        "result": groups[0],
+                        "unit": groups[1],
+                        "reference_range": groups[2],
+                        "flag": ""
+                    }
+    
+    # Handle Cholesterol HDL
+    if test_name.lower() in ["cholesterol hdl", "hdl", "hdl cholesterol"]:
+        patterns = [
+            # Pattern 1: Cholesterol HDL H 84.0 mg/dL 40.0 - 75.0
+            r"Cholesterol HDL\s+([HLN])\s+([\d.]+)\s+(mg/dL)\s+([\d.]+ - [\d.]+)",
+            # Pattern 2: Cholesterol HDL 54.0 mg/dL 40.0 - 75.0 (no flag)
+            r"Cholesterol HDL\s+([\d.]+)\s+(mg/dL)\s+([\d.]+ - [\d.]+)",
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                groups = match.groups()
+                if len(groups) == 4:  # Has flag
+                    return {
+                        "result": groups[1],
+                        "unit": groups[2],
+                        "reference_range": groups[3],
+                        "flag": groups[0]
+                    }
+                else:  # No flag
+                    return {
+                        "result": groups[0],
+                        "unit": groups[1],
+                        "reference_range": groups[2],
+                        "flag": ""
+                    }
+    
+    # Handle Cholesterol LDL
+    if test_name.lower() in ["cholesterol ldl", "ldl", "ldl cholesterol"]:
+        patterns = [
+            r"Cholesterol LDL\s+([HLN])\s+([\d.]+)\s+(mg/dL)\s+([\d.]+ - [\d.]+)",
+            r"Cholesterol LDL\s+([\d.]+)\s+(mg/dL)\s+([\d.]+ - [\d.]+)",
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                groups = match.groups()
+                if len(groups) == 4:  # Has flag
+                    return {
+                        "result": groups[1],
+                        "unit": groups[2],
+                        "reference_range": groups[3],
+                        "flag": groups[0]
+                    }
+                else:  # No flag
+                    return {
+                        "result": groups[0],
+                        "unit": groups[1],
+                        "reference_range": groups[2],
+                        "flag": ""
+                    }
+    
+    # Handle VLDL
+    if test_name.lower() == "vldl":
+        patterns = [
+            # Pattern 1: VLDL L 13.60 mg/dL 20 - 30
+            r"VLDL\s+([HLN])\s+([\d.]+)\s+(mg/dL)\s+([\d.]+ - [\d.]+)",
+            # Pattern 2: VLDL 19.80 mg/dL 20 - 30 (no flag)
+            r"VLDL\s+([\d.]+)\s+(mg/dL)\s+([\d.]+ - [\d.]+)",
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                groups = match.groups()
+                if len(groups) == 4:  # Has flag
+                    return {
+                        "result": groups[1],
+                        "unit": groups[2],
+                        "reference_range": groups[3],
+                        "flag": groups[0]
+                    }
+                else:  # No flag
+                    return {
+                        "result": groups[0],
+                        "unit": groups[1],
+                        "reference_range": groups[2],
+                        "flag": ""
+                    }
+    
+    # Default empty structure
     return {
         "result": "",
         "unit": "",
@@ -651,21 +747,10 @@ def extract_lipid_value(text: str, test_name: str):
         "flag": ""
     }
 
-def get_clean_text(pdf_doc):
-    """Improved text extraction with layout preservation"""
-    text = ""
-    for page in pdf_doc:
-        # Get text blocks with their positions
-        blocks = page.get_text("blocks")
-        # Sort by vertical then horizontal position
-        blocks.sort(key=lambda b: (b[1], b[0]))
-        text += "\n".join(block[4] for block in blocks if block[4].strip())
-    return text
-
 def parse_lipid_profile(text: str, filename: str) -> Dict:
     """Parse the lipid profile PDF and extract all relevant information"""
     print("===== RAW PDF TEXT =====")
-    print(text[:1000])
+    print(text)
     print("=" * 50)
     
     gender, age = extract_gender_age(text)
