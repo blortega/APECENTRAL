@@ -26,6 +26,49 @@ app.add_middleware(
 async def root():
     return {"message": "Medical Records API is running"}
 
+UPLOAD_DIR = "uploaded_pdfs"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+@app.post("/upload-and-store")
+async def upload_and_store(file: UploadFile = File(...), type: str= "xray") -> Dict:
+    try:
+        # Save PDF to disk locally
+        unique_id = Path(file.filename).stem
+        file_path = os.path.join(UPLOAD_DIR, file.filename)
+        with open(file_path, "wb") as f:
+            content = await file.read()
+            f.write(content)
+
+        # Extract data
+        pdf = fitz.open(stream=content, filetype="pdf")
+        full_text = ""
+        for page in pdf:
+            full_text += page.get_text()
+
+        if type == "xray":
+            data = parse_xray_data(full_text, file.filename)
+        elif type == "cbc":
+            data = parse_cbc_data(full_text, file.filename)
+        elif type == "urinalysis":
+            data = parse_urinalysis(full_text, file.filename)
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown report type: {type}")
+
+        return {
+            "data": data,
+            "pdfUrl": f"http://localhost:8000/view-pdf/{file.filename}"
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to process PDF: {str(e)}")
+
+@app.get("/view-pdf/{filename}")
+def view_pdf(filename: str):
+    file_path = os.path.join(UPLOAD_DIR, filename)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="PDF not found")
+    return FileResponse(path=file_path, media_type="application/pdf", filename=filename)
+
 @app.post("/extract-xray")
 async def extract_xray(file: UploadFile = File(...)) -> Dict:
     content = await file.read()
@@ -520,9 +563,6 @@ async def extract_ecg(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing ECG file: {str(e)}")
     
-# Create uploads directory if it doesn't exist
-UPLOAD_DIR = Path("uploaded_pdfs")
-UPLOAD_DIR.mkdir(exist_ok=True)
 
 @app.post("/extract-lipid-profile")
 async def extract_lipid_profile(file: UploadFile = File(...)) -> Dict:
@@ -532,7 +572,6 @@ async def extract_lipid_profile(file: UploadFile = File(...)) -> Dict:
     pdf.close()
     
     # Save the PDF file locally
-    file_path = UPLOAD_DIR / file.filename
     with open(file_path, "wb") as f:
         f.write(content)
     
@@ -540,19 +579,6 @@ async def extract_lipid_profile(file: UploadFile = File(...)) -> Dict:
     result["pdf_path"] = str(file_path)  # Add PDF path to result
     
     return result
-
-@app.get("/download-pdf/{filename}")
-async def download_pdf(filename: str):
-    """Download the original PDF file"""
-    file_path = UPLOAD_DIR / filename
-    if not file_path.exists():
-        raise HTTPException(status_code=404, detail="PDF file not found")
-    
-    return FileResponse(
-        path=file_path,
-        filename=filename,
-        media_type="application/pdf"
-    )
 
 def extract_patient_info(text: str, label: str, fallback: str = "") -> str:
     """Extract patient information from PDF text"""

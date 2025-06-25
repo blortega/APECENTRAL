@@ -598,4 +598,27 @@
     white-space: pre-line;
     line-height: 1.6;
   }
+  .pdfSection {
+    margin-top: 24px;
+  }
+
+  .pdfActions {
+    margin-top: 12px;
+    display: flex;
+    gap: 16px;
+  }
+
+  .viewPdfButton,
+  .downloadPdfButton {
+    color: #1d4ed8;
+    font-weight: 500;
+    font-size: 14px;
+    text-decoration: none;
+    transition: color 0.2s ease;  
+  }
+
+  .viewPdfButton:hover,
+  .downloadPdfButton:hover {
+    color: #2563eb;
+  }
 }
