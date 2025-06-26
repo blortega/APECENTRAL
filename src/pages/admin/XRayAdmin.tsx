@@ -472,41 +472,41 @@ const XRayAdmin: React.FC = () => {
                 </div>
               )}
               {selectedRecord?.pdfUrl && (
-  <div className={styles.pdfSection}>
-    <h4 className={styles.sectionSubtitle}>📄 PDF Report</h4>
+              <div className={styles.pdfSection}>
+              <h4 className={styles.sectionSubtitle}>📄 PDF Report</h4>
+              <iframe
+                src={selectedRecord.pdfUrl}
+                width="100%"
+                height="500px"
+                style={{
+                  border: "1px solid #ccc",
+                  marginTop: "10px",
+                  borderRadius: "8px",
+                }}
+                title="PDF Preview"
+              />
 
-    <iframe
-      src={`${import.meta.env.VITE_BACKEND_URL}/view-pdf/${selectedRecord.pdfUrl}`}
-      width="100%"
-      height="500px"
-      style={{
-        border: "1px solid #ccc",
-        marginTop: "10px",
-        borderRadius: "8px",
-      }}
-      title="PDF Preview"
-    />
+              <div className={styles.pdfActions}>
+              <a
+                href={selectedRecord.pdfUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={styles.viewPdfButton}
+              >
+                🔗 View PDF in New Tab
+              </a>
 
-    <div className={styles.pdfActions}>
-      <a
-        href={`${import.meta.env.VITE_BACKEND_URL}/view-pdf/${selectedRecord.pdfUrl}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={styles.viewPdfButton}
-      >
-        🔗 View in New Tab
-      </a>
 
-      <a
-        href={`${import.meta.env.VITE_BACKEND_URL}/view-pdf/${selectedRecord.pdfUrl}`}
-        download={selectedRecord.fileName}
-        className={styles.downloadPdfButton}
-      >
-        ⬇️ Download PDF
-      </a>
-    </div>
-  </div>
-)}
+              <a
+                href={selectedRecord.pdfUrl}
+                download={selectedRecord.fileName}
+                className={styles.downloadPdfButton}
+              >
+                ⬇️ Download PDF
+              </a>
+            </div>
+          </div>
+          )}
 
             </div>
           </div>

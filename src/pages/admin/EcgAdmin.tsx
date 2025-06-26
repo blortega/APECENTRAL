@@ -16,26 +16,27 @@ import useGenerateActivity from "@/hooks/useGenerateActivity"; // Import the hoo
 interface EcgRecord {
   id?: string;
   uniqueId: string;
-  pid_no: string;
+  pidNo: string;
   date: string;
-  patient_name: string;
-  referring_physician: string;
+  patientName: string;
+  referringPhysician: string;
   hr: string;
   bp: string;
   age: string;
   sex: string;
-  birth_date: string;
+  birthDate: string;
   qrs: string;
-  qt_qtc: string;
+  qtQtc: string;
   pr: string;
-  p: string;
-  rr_pp: string;
-  pqrst: string;
+  pWave: string;
+  rrPp: string;
+  pqrstAxis: string;
   interpretation: string;
   fileName: string;
   uploadDate: string;
   pdfUrl: string;
 }
+
 
 const EcgAdmin: React.FC = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -199,7 +200,7 @@ const EcgAdmin: React.FC = () => {
 
     // Find the record to get patient details for logging
     const recordToDelete = records.find((r) => r.id === recordId);
-    const patientName = recordToDelete?.patient_name || "Unknown Patient";
+    const patientName = recordToDelete?.patientName || "Unknown Patient";
     const uniqueId = recordToDelete?.uniqueId || "";
 
     try {
@@ -257,9 +258,9 @@ const EcgAdmin: React.FC = () => {
   // Filter records based on search
   const filteredRecords = records.filter(
     (record) =>
-      record.patient_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.patientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       record.uniqueId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.pid_no?.toLowerCase().includes(searchTerm.toLowerCase())
+      record.pidNo?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   // Load records on component mount (without logging)
@@ -375,7 +376,7 @@ const EcgAdmin: React.FC = () => {
                     <div className={styles.recordHeader}>
                       <div className={styles.patientInfo}>
                         <h3 className={styles.patientName}>
-                          {record.patient_name}
+                          {record.patientName}
                         </h3>
                         <p className={styles.uniqueId}>{record.uniqueId}</p>
                       </div>
@@ -399,7 +400,7 @@ const EcgAdmin: React.FC = () => {
                       <div className={styles.recordItem}>
                         <span className={styles.recordLabel}>PID NO:</span>
                         <span className={styles.recordValue}>
-                          {record.pid_no}
+                          {record.pidNo}
                         </span>
                       </div>
                       <div className={styles.recordItem}>
@@ -450,7 +451,7 @@ const EcgAdmin: React.FC = () => {
                   <div className={styles.infoItem}>
                     <span className={styles.infoLabel}>PID NO:</span>
                     <span className={styles.infoValue}>
-                      {selectedRecord.pid_no}
+                      {selectedRecord.pidNo}
                     </span>
                   </div>
 
@@ -467,13 +468,13 @@ const EcgAdmin: React.FC = () => {
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>Name:</span>
                   <span className={styles.infoValue}>
-                    {selectedRecord.patient_name}
+                    {selectedRecord.patientName}
                   </span>
                 </div>
                 <div className={styles.infoItem}>
                   <span className={styles.infoLabel}>Date of Birth:</span>
                   <span className={styles.infoValue}>
-                    {selectedRecord.birth_date}
+                    {selectedRecord.birthDate}
                   </span>
                 </div>
                 <div className={styles.infoItem}>
@@ -513,7 +514,7 @@ const EcgAdmin: React.FC = () => {
               <div className={styles.infoItem}>
                 <span className={styles.infoLabel}>QT/QTcBaZ:</span>
                 <span className={styles.infoValue}>
-                  {selectedRecord.qt_qtc}
+                  {selectedRecord.qtQtc}
                 </span>
               </div>
 
@@ -524,17 +525,17 @@ const EcgAdmin: React.FC = () => {
 
               <div className={styles.infoItem}>
                 <span className={styles.infoLabel}>P:</span>
-                <span className={styles.infoValue}>{selectedRecord.p}</span>
+                <span className={styles.infoValue}>{selectedRecord.pWave}</span>
               </div>
 
               <div className={styles.infoItem}>
                 <span className={styles.infoLabel}>RR/PP:</span>
-                <span className={styles.infoValue}>{selectedRecord.rr_pp}</span>
+                <span className={styles.infoValue}>{selectedRecord.rrPp}</span>
               </div>
 
               <div className={styles.infoItem}>
                 <span className={styles.infoLabel}>P/QRS/T:</span>
-                <span className={styles.infoValue}>{selectedRecord.pqrst}</span>
+                <span className={styles.infoValue}>{selectedRecord.pqrstAxis}</span>
               </div>
             </div>
 
@@ -549,7 +550,7 @@ const EcgAdmin: React.FC = () => {
                     <h4 className={styles.sectionSubtitle}>📄 PDF Report</h4>
                 
                     <iframe
-                      src={`${import.meta.env.VITE_BACKEND_URL}/view-pdf/${selectedRecord.pdfUrl}`}
+                      src={selectedRecord.pdfUrl}
                       width="100%"
                       height="500px"
                       style={{
@@ -562,7 +563,7 @@ const EcgAdmin: React.FC = () => {
                 
                     <div className={styles.pdfActions}>
                       <a
-                        href={`${import.meta.env.VITE_BACKEND_URL}/view-pdf/${selectedRecord.pdfUrl}`}
+                        href={selectedRecord.pdfUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         className={styles.viewPdfButton}
@@ -571,7 +572,7 @@ const EcgAdmin: React.FC = () => {
                       </a>
                 
                       <a
-                        href={`${import.meta.env.VITE_BACKEND_URL}/view-pdf/${selectedRecord.pdfUrl}`}
+                        href={selectedRecord.pdfUrl}
                         download={selectedRecord.fileName}
                         className={styles.downloadPdfButton}
                       >

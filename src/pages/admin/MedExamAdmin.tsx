@@ -16,15 +16,22 @@ import useGenerateActivity from "@/hooks/useGenerateActivity";
 interface MedExamRecord {
   id?: string;
   uniqueId: string;
+  fileName: string;
+  uploadDate: string;
+  pdfUrl: string;
+
+  // Patient Info
   patient_name: string;
   pid: string;
   date_of_birth: string;
   age: number;
   sex: string;
+  civil_status: string;
   company: string;
   occupation: string;
   date_of_examination: string;
-  civil_status: string;
+
+  // Medical History
   present_illness: string;
   food_allergy: string;
   medication_allergy: string;
@@ -33,37 +40,65 @@ interface MedExamRecord {
   previous_hospitalizations: string;
   menstrual_history_lmp: string;
   obstetrical_history: string;
+
+  // Vitals
   blood_pressure: string;
   pulse: string;
   spo2: string;
   respiratory_rate: string;
   temperature: string;
+
+  // Anthropometrics
   height: string;
   weight: string;
   bmi: string;
   ibw: string;
+
+  // Vision
   vision_adequacy: string;
   vision_od: string;
   vision_os: string;
+
+  // Laboratory Results
   cbc_result: string;
   urinalysis_result: string;
   blood_chemistry_result: string;
   chest_xray_result: string;
   ecg_result: string;
+
+  // Medical Classification
   fitness_status: string;
   medical_class: string;
   needs_treatment: string;
   remarks: string;
+
+  // Medical Personnel
   examining_physician: string;
   evaluating_personnel: string;
   physician_prc: string;
+
+  // Dates
   date_of_initial_peme: string;
   date_of_fitness: string;
   valid_until: string;
-  fileName: string;
-  uploadDate: string;
-  pdfUrl: string;
+
+  // Clinical History (Yes/No)
+  head_or_neck_injury: string;
+  frequent_dizziness: string;
+  fainting_spells: string;
+  chronic_cough: string;
+  heart_disease: string;
+  hypertension: string;
+  diabetes: string;
+  asthma: string;
+  epilepsy: string;
+  mental_disorder: string;
+  tuberculosis: string;
+  cancer: string;
+  kidney_disease: string;
+  others: string;
 }
+
 
 const MedExamAdmin: React.FC = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -635,6 +670,30 @@ const MedExamAdmin: React.FC = () => {
                   <span className={styles.infoValue}>
                     {selectedRecord.previous_hospitalizations || "None"}
                   </span>
+                </div>
+                <h4 className={styles.sectionSubtitle}>Clinical History (Yes / No)</h4>
+                <div className={styles.infoGrid}>
+                    {[
+                    ["Head or Neck Injury", selectedRecord.head_or_neck_injury],
+                    ["Frequent Dizziness", selectedRecord.frequent_dizziness],
+                    ["Fainting Spells", selectedRecord.fainting_spells],
+                    ["Chronic Cough", selectedRecord.chronic_cough],
+                    ["Heart Disease / Chest Pain", selectedRecord.heart_disease],
+                    ["Hypertension", selectedRecord.hypertension],
+                    ["Diabetes", selectedRecord.diabetes],
+                    ["Asthma", selectedRecord.asthma],
+                    ["Epilepsy", selectedRecord.epilepsy],
+                    ["Mental Disorder", selectedRecord.mental_disorder],
+                    ["Tuberculosis", selectedRecord.tuberculosis],
+                    ["Cancer", selectedRecord.cancer],
+                    ["Kidney Disease", selectedRecord.kidney_disease],
+                    ["Others", selectedRecord.others],
+                  ].map(([label, value]) => (
+                    <div className={styles.infoItem} key={label}>
+                      <span className={styles.infoLabel}>{label}:</span>
+                      <span className={styles.infoValue}>{value}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
 
