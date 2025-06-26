@@ -235,6 +235,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
           description: "Electrocardiogram Management",
         },
         {
+          path: "/chemadmin",
+          icon: "💓",
+          label: "Chemistry Admin",
+          description: "Chemistry Result Management",
+        },
+        {
           path: "/urinalysisadmin",
           icon: "🔬",
           label: "Urinalysis Admin",

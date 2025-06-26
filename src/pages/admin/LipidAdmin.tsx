@@ -11,6 +11,7 @@ import {
 import { db } from "@/firebaseConfig";
 import styles from "@/styles/XRay.module.css";
 import Sidebar from "@/components/Sidebar";
+import useGenerateActivity from "@/hooks/useGenerateActivity";
 
 interface LipidValue {
   result: string;
@@ -41,6 +42,7 @@ interface LipidRecord {
 
   fileName: string;
   uploadDate: string;
+  pdfUrl: string;
 }
 
 const LipidAdmin: React.FC = () => {
@@ -55,6 +57,10 @@ const LipidAdmin: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const {
+      generateActivity,
+    } = useGenerateActivity();
+
   const handleSidebarToggle = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
   };
@@ -68,6 +74,9 @@ const LipidAdmin: React.FC = () => {
 
     setLoading(true);
     setUploadProgress("Starting upload...");
+
+    let successfulUploads = 0;
+    let totalFiles = files.length;
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -85,12 +94,12 @@ const LipidAdmin: React.FC = () => {
       formData.append("file", file);
 
       try {
-        const res = await fetch("http://localhost:8000/extract-lipid-profile", {
+        const res = await fetch("http://localhost:8000/upload-and-store?type=lipid", {
           method: "POST",
           body: formData,
         });
 
-        const data = await res.json();
+        const {data, pdfUrl} = await res.json();
 
         console.log("Parsed Data from backend:", data);
 
@@ -112,16 +121,37 @@ const LipidAdmin: React.FC = () => {
         }
 
         // Save to Firestore
-        await addDoc(collection(db, "lipidProfileRecords"), data);
+        await addDoc(collection(db, "lipidProfileRecords"), 
+        {...data, pdfUrl});
         setUploadProgress(`Saved ${data.patientName}`);
+        successfulUploads++;
+      try {
+          await generateActivity(
+            "lipid_upload",
+            `Uploaded Lipid Profile record for ${data.patientName} (${data.uniqueId})`
+          );
+        } catch (activityErr) {
+          console.error("Failed to log upload activity:", activityErr);
+        }
       } catch (err) {
         console.error("Upload error:", err);
       }
     }
-
     await loadRecords();
     setUploadProgress("Upload finished.");
     setLoading(false);
+    if (successfulUploads > 0) {
+      try {
+        await generateActivity(
+          "lipid_add",
+          `Successfully uploaded ${successfulUploads} lipid record${
+            successfulUploads > 1 ? "s" : ""
+          } from ${totalFiles} file${totalFiles > 1 ? "s" : ""}`
+        );
+      } catch (err) {
+        console.error("Failed to log upload activity:", err);
+      }
+    }
   };
 
   // Load all records from Firestore
@@ -497,6 +527,42 @@ const LipidAdmin: React.FC = () => {
                         ) : "N/A"}
                       </span>
                     </div>
+                    {selectedRecord?.pdfUrl && (
+                  <div className={styles.pdfSection}>
+                    <h4 className={styles.sectionSubtitle}>📄 PDF Report</h4>
+                
+                    <iframe
+                      src={selectedRecord.pdfUrl}
+                      width="100%"
+                      height="500px"
+                      style={{
+                        border: "1px solid #ccc",
+                        marginTop: "10px",
+                        borderRadius: "8px",
+                      }}
+                      title="PDF Preview"
+                    />
+                
+                    <div className={styles.pdfActions}>
+                      <a
+                        href={selectedRecord.pdfUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={styles.viewPdfButton}
+                      >
+                        🔗 View in New Tab
+                      </a>
+                
+                      <a
+                        href={selectedRecord.pdfUrl}
+                        download={selectedRecord.fileName}
+                        className={styles.downloadPdfButton}
+                      >
+                        ⬇️ Download PDF
+                      </a>
+                    </div>
+                  </div>
+                )}
                   </div>
                 </div>
               </div>

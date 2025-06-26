@@ -62,6 +62,7 @@ interface MedExamRecord {
   valid_until: string;
   fileName: string;
   uploadDate: string;
+  pdfUrl: string;
 }
 
 const MedExamAdmin: React.FC = () => {
@@ -116,17 +117,28 @@ const MedExamAdmin: React.FC = () => {
       formData.append("file", file);
 
       try {
-        const res = await fetch("http://localhost:8000/extract-medical-exam", {
+        const res = await fetch("http://localhost:8000/upload-and-store?type=medical", {
           method: "POST",
           body: formData,
         });
 
-        const data = await res.json();
+        let result;
+      try {
+        result = await res.json();
+      } catch (e) {
+        console.error(`Failed to parse JSON from ${file.name}:`, e);
+    continue;
+      }
 
-        if (data.error) {
-          console.error(`Error in ${file.name}:`, data.error);
-          continue;
-        }
+      if (!res.ok) {
+        console.error(`Upload failed for ${file.name}:`, result?.detail || result);
+        continue;
+      }
+
+
+        const data = result.data ?? result; // fallback if backend returns flat object
+        const pdfUrl = result.pdfUrl ?? "";
+
 
         // Check for duplicates in Firestore
         const q = query(
@@ -141,7 +153,8 @@ const MedExamAdmin: React.FC = () => {
         }
 
         // Save to Firestore
-        await addDoc(collection(db, "medExamRecords"), data);
+        await addDoc(collection(db, "medExamRecords"), 
+        {...data, pdfUrl});
         setUploadProgress(`Saved ${data.patient_name}`);
         uploadedCount++;
 
@@ -722,6 +735,42 @@ const MedExamAdmin: React.FC = () => {
                       {selectedRecord.physician_prc}
                     </span>
                   </div>
+                  {selectedRecord?.pdfUrl && (
+  <div className={styles.pdfSection}>
+    <h4 className={styles.sectionSubtitle}>📄 PDF Report</h4>
+
+    <iframe
+      src={selectedRecord.pdfUrl}
+      width="100%"
+      height="500px"
+      style={{
+        border: "1px solid #ccc",
+        marginTop: "10px",
+        borderRadius: "8px",
+      }}
+      title="PDF Preview"
+    />
+
+    <div className={styles.pdfActions}>
+      <a
+        href={selectedRecord.pdfUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={styles.viewPdfButton}
+      >
+        🔗 View in New Tab
+      </a>
+
+      <a
+        href={selectedRecord.pdfUrl}
+        download={selectedRecord.fileName}
+        className={styles.downloadPdfButton}
+      >
+        ⬇️ Download PDF
+      </a>
+    </div>
+  </div>
+)}
                 </div>
               </div>
             </div>
