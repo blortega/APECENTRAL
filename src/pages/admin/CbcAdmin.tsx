@@ -825,42 +825,50 @@ const CbcAdmin: React.FC = () => {
                     {selectedRecord.basophils_abs?.reference_range || "N/A"})
                   </span>
                 </div>
-                {selectedRecord?.pdfUrl && (
-                  <div className={styles.pdfSection}>
-                    <h4 className={styles.sectionSubtitle}>📄 PDF Report</h4>
-                
-                    <iframe
-                      src={selectedRecord.pdfUrl}
-                      width="100%"
-                      height="500px"
-                      style={{
-                        border: "1px solid #ccc",
-                        marginTop: "10px",
-                        borderRadius: "8px",
-                      }}
-                      title="PDF Preview"
-                    />
-                
-                    <div className={styles.pdfActions}>
-                      <a
-                        href={selectedRecord.pdfUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={styles.viewPdfButton}
-                      >
-                        🔗 View in New Tab
-                      </a>
-                
-                      <a
-                        href={selectedRecord.pdfUrl}
-                        download={selectedRecord.fileName}
-                        className={styles.downloadPdfButton}
-                      >
-                        ⬇️ Download PDF
-                      </a>
-                    </div>
-                  </div>
-                )}
+                {selectedRecord?.pdfUrl && (() => {
+                  const baseUrl = import.meta.env.VITE_BACKEND_URL;
+                  const isFullUrl = selectedRecord.pdfUrl.startsWith("http");
+                  const pdfPath = isFullUrl
+                    ? selectedRecord.pdfUrl
+                    : `${baseUrl}/view-pdf/${selectedRecord.pdfUrl}`;
+
+  return (
+    <div className={styles.pdfSection}>
+      <h4 className={styles.sectionSubtitle}>📄 PDF Report</h4>
+
+      <iframe
+        src={pdfPath}
+        width="100%"
+        height="500px"
+        style={{
+          border: "1px solid #ccc",
+          marginTop: "10px",
+          borderRadius: "8px",
+        }}
+        title="PDF Preview"
+      />
+
+      <div className={styles.pdfActions}>
+        <a
+          href={pdfPath}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={styles.viewPdfButton}
+        >
+          🔗 View in New Tab
+        </a>
+
+        <a
+          href={pdfPath}
+          download={selectedRecord.fileName}
+          className={styles.downloadPdfButton}
+        >
+          ⬇️ Download PDF
+        </a>
+      </div>
+    </div>
+  );
+})()}
               </div>
             </div>
           </div>
