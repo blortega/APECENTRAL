@@ -106,7 +106,7 @@ const CbcAdmin: React.FC = () => {
       formData.append("file", file);
 
       try {
-        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/upload-and-store?type=cbc`, {
+        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/upload-and-store?type=cbc`,  {
           method: "POST",
           body: formData,
         });

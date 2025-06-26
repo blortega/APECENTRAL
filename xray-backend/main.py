@@ -61,7 +61,7 @@ async def upload_and_store(request: Request, file: UploadFile = File(...), type:
         elif type == "urinalysis":
             data = parse_urinalysis(full_text, file.filename)
         elif type == "lipid":
-            data = parse_lipid_profile(content.decode("utf-8"), file.filename)
+            data = parse_lipid_profile(full_text, file.filename)
         elif type == "ecg":
             data = parse_ecg_data(full_text, file.filename)
         elif type == "medical":
@@ -70,12 +70,13 @@ async def upload_and_store(request: Request, file: UploadFile = File(...), type:
             data = parse_chemistry(full_text, file.filename)
 
         # Dynamically get base URL
-        base_url = str(request.base_url).rstrip("/")
+        
         encoded_filename = quote(file.filename)
+        data["pdfUrl"] = encoded_filename
 
         return {
             "data": data,
-            "pdfUrl": f"{base_url}/view-pdf/{encoded_filename}"
+            "pdfUrl": encoded_filename,
         }
 
     except Exception as e:
