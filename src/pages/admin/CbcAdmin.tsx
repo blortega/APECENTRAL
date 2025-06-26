@@ -53,6 +53,7 @@ interface CBCRecord {
   basophils_abs: CBCValue;
   fileName: string;
   uploadDate: string;
+  pdfUrl: string,
 }
 
 const CbcAdmin: React.FC = () => {
@@ -105,12 +106,12 @@ const CbcAdmin: React.FC = () => {
       formData.append("file", file);
 
       try {
-        const res = await fetch("http://localhost:8000/extract-cbc", {
+        const res = await fetch("http://localhost:8000/upload-and-store?type=cbc", {
           method: "POST",
           body: formData,
         });
 
-        const data = await res.json();
+        const {data, pdfUrl} = await res.json();
 
         if (data.error) {
           console.error(`Error in ${file.name}:`, data.error);
@@ -130,7 +131,8 @@ const CbcAdmin: React.FC = () => {
         }
 
         // Save to Firestore
-        await addDoc(collection(db, "cbcRecords"), data);
+        await addDoc(collection(db, "cbcRecords"), 
+        {...data, pdfUrl});
         setUploadProgress(`Saved ${data.patientName}`);
         uploadedCount++;
 
@@ -823,6 +825,42 @@ const CbcAdmin: React.FC = () => {
                     {selectedRecord.basophils_abs?.reference_range || "N/A"})
                   </span>
                 </div>
+                {selectedRecord?.pdfUrl && (
+                  <div className={styles.pdfSection}>
+                    <h4 className={styles.sectionSubtitle}>📄 PDF Report</h4>
+                
+                    <iframe
+                      src={selectedRecord.pdfUrl}
+                      width="100%"
+                      height="500px"
+                      style={{
+                        border: "1px solid #ccc",
+                        marginTop: "10px",
+                        borderRadius: "8px",
+                      }}
+                      title="PDF Preview"
+                    />
+                
+                    <div className={styles.pdfActions}>
+                      <a
+                        href={selectedRecord.pdfUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={styles.viewPdfButton}
+                      >
+                        🔗 View in New Tab
+                      </a>
+                
+                      <a
+                        href={selectedRecord.pdfUrl}
+                        download={selectedRecord.fileName}
+                        className={styles.downloadPdfButton}
+                      >
+                        ⬇️ Download PDF
+                      </a>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

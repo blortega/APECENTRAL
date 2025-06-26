@@ -34,6 +34,7 @@ interface EcgRecord {
   interpretation: string;
   fileName: string;
   uploadDate: string;
+  pdfUrl: string;
 }
 
 const EcgAdmin: React.FC = () => {
@@ -86,12 +87,12 @@ const EcgAdmin: React.FC = () => {
       formData.append("file", file);
 
       try {
-        const res = await fetch("http://localhost:8000/extract-ecg", {
+        const res = await fetch("http://localhost:8000/upload-and-store?type=ecg", {
           method: "POST",
           body: formData,
         });
 
-        const data = await res.json();
+        const {data, pdfUrl} = await res.json();
 
         console.log("Parsed Data from backend:", data);
 
@@ -119,7 +120,8 @@ const EcgAdmin: React.FC = () => {
         }
 
         // Save to Firestore
-        await addDoc(collection(db, "ecgRecords"), data);
+        await addDoc(collection(db, "ecgRecords"), 
+        {...data, pdfUrl});
         setUploadProgress(`Saved ${data.patient_name}`);
         uploadedCount++;
 
@@ -542,6 +544,42 @@ const EcgAdmin: React.FC = () => {
                 {selectedRecord.interpretation}
               </div>
             </div>
+            {selectedRecord?.pdfUrl && (
+                  <div className={styles.pdfSection}>
+                    <h4 className={styles.sectionSubtitle}>📄 PDF Report</h4>
+                
+                    <iframe
+                      src={selectedRecord.pdfUrl}
+                      width="100%"
+                      height="500px"
+                      style={{
+                        border: "1px solid #ccc",
+                        marginTop: "10px",
+                        borderRadius: "8px",
+                      }}
+                      title="PDF Preview"
+                    />
+                
+                    <div className={styles.pdfActions}>
+                      <a
+                        href={selectedRecord.pdfUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={styles.viewPdfButton}
+                      >
+                        🔗 View in New Tab
+                      </a>
+                
+                      <a
+                        href={selectedRecord.pdfUrl}
+                        download={selectedRecord.fileName}
+                        className={styles.downloadPdfButton}
+                      >
+                        ⬇️ Download PDF
+                      </a>
+                    </div>
+                  </div>
+                )}
           </div>
         </div>
       )}

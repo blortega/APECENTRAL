@@ -32,6 +32,7 @@ interface UrinalysisRecord {
   resultValidated: string;
   orderNumber: string;
   location: string;
+  
 
   color: LabValue;
   clarity: LabValue;
@@ -54,6 +55,7 @@ interface UrinalysisRecord {
 
   fileName: string;
   uploadDate: string;
+  pdfUrl: string;
 }
 
 const UrinalysisAdmin: React.FC = () => {
@@ -108,12 +110,12 @@ const UrinalysisAdmin: React.FC = () => {
       formData.append("file", file);
 
       try {
-        const res = await fetch("http://localhost:8000/extract-urinalysis", {
+        const res = await fetch("http://localhost:8000/upload-and-store?type=urinalysis", {
           method: "POST",
           body: formData,
         });
 
-        const data = await res.json();
+        const {data, pdfUrl} = await res.json();
 
         console.log("Parsed Data from backend:", data);
 
@@ -135,13 +137,28 @@ const UrinalysisAdmin: React.FC = () => {
         }
 
         // Save to Firestore
-        await addDoc(collection(db, "urinalysisRecords"), data);
+        await addDoc(collection(db, "urinalysisRecords"), 
+        {...data, pdfUrl});
         setUploadProgress(`Saved ${data.patientName}`);
         successfulUploads++;
+      try {
+          await generateActivity(
+            "urinalysis_upload",
+            `Uploaded X-Ray record for ${data.patientName} (${data.uniqueId})`
+          );
+        } catch (activityErr) {
+          console.error("Failed to log upload activity:", activityErr);
+        }
       } catch (err) {
         console.error("Upload error:", err);
       }
     }
+
+    
+
+    await loadRecords();
+    setUploadProgress("Upload finished.");
+    setLoading(false);
 
     // Log activity for successful uploads
     if (successfulUploads > 0) {
@@ -156,10 +173,6 @@ const UrinalysisAdmin: React.FC = () => {
         console.error("Failed to log upload activity:", err);
       }
     }
-
-    await loadRecords();
-    setUploadProgress("Upload finished.");
-    setLoading(false);
   };
 
   // Load all records from Firestore with activity logging
@@ -662,6 +675,42 @@ const UrinalysisAdmin: React.FC = () => {
                     {selectedRecord.remarks?.reference_range || "N/A"})
                   </span>
                 </div>
+                {selectedRecord?.pdfUrl && (
+                  <div className={styles.pdfSection}>
+                    <h4 className={styles.sectionSubtitle}>📄 PDF Report</h4>
+                
+                    <iframe
+                      src={selectedRecord.pdfUrl}
+                      width="100%"
+                      height="500px"
+                      style={{
+                        border: "1px solid #ccc",
+                        marginTop: "10px",
+                        borderRadius: "8px",
+                      }}
+                      title="PDF Preview"
+                    />
+                
+                    <div className={styles.pdfActions}>
+                      <a
+                        href={selectedRecord.pdfUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={styles.viewPdfButton}
+                      >
+                        🔗 View in New Tab
+                      </a>
+                
+                      <a
+                        href={selectedRecord.pdfUrl}
+                        download={selectedRecord.fileName}
+                        className={styles.downloadPdfButton}
+                      >
+                        ⬇️ Download PDF
+                      </a>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
