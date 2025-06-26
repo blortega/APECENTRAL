@@ -59,8 +59,6 @@ const LipidAdmin: React.FC = () => {
 
   const {
       generateActivity,
-      isLoading: activityLoading,
-      error: activityError,
     } = useGenerateActivity();
 
   const handleSidebarToggle = () => {

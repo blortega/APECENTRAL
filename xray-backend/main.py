@@ -58,6 +58,8 @@ async def upload_and_store(file: UploadFile = File(...), type: str= "xray") -> D
             data = parse_ecg_data(full_text, file.filename)
         elif type == "medical":
             data = parse_medical_exam(full_text, file.filename)
+        elif type == "chem":
+            data = parse_chemistry(full_text, file.filename)
         else:
             raise HTTPException(status_code=400, detail=f"Unknown report type: {type}")
 
@@ -894,11 +896,13 @@ def parse_medical_exam(text: str, filename: str) -> Dict:
 
     
     def extract_yes_no_condition(condition_name):
-        """Extract YES/NO conditions from medical history"""
-        # Look for the condition followed by checkboxes or YES/NO indicators
-        pattern = rf"{re.escape(condition_name)}\s*(?:YES|NO|\s)*([XYN][ESO]*)"
+        pattern = rf"\[([✓xX ])\]\s*{re.escape(condition_name)}"
         match = re.search(pattern, text, re.IGNORECASE)
-        return match.group(1) if match else ""
+        if not match:
+            return "UNKNOWN"
+        symbol = match.group(1)
+        return "YES" if symbol.strip() in ["✓", "x", "X"] else "NO"
+
     
     def extract_vital_signs():
         """Extract vital signs from the formatted table"""
@@ -1019,6 +1023,23 @@ def parse_medical_exam(text: str, filename: str) -> Dict:
     visual = extract_visual_acuity()
     labs = extract_lab_findings()
     classification = extract_medical_classification()
+
+    yes_no_conditions = {
+        "head_or_neck_injury": extract_yes_no_condition("Head or Neck Injury"),
+        "frequent_dizziness": extract_yes_no_condition("Frequent Dizziness"),
+        "fainting_spells": extract_yes_no_condition("Fainting Spells"),
+        "chronic_cough": extract_yes_no_condition("Chronic Cough"),
+        "heart_disease": extract_yes_no_condition("Heart Disease/ Chest Pain"),
+        "hypertension": extract_yes_no_condition("Hypertension"),
+        "diabetes": extract_yes_no_condition("Diabetes"),
+        "asthma": extract_yes_no_condition("Asthma"),
+        "epilepsy": extract_yes_no_condition("Epilepsy"),
+        "mental_disorder": extract_yes_no_condition("Mental Disorder"),
+        "tuberculosis": extract_yes_no_condition("Tuberculosis"),
+        "cancer": extract_yes_no_condition("Cancer"),
+        "kidney_disease": extract_yes_no_condition("Kidney Disease"),
+        "others": extract_yes_no_condition("Others")
+    }
     
     return {
         # Basic Patient Information
@@ -1088,5 +1109,89 @@ def parse_medical_exam(text: str, filename: str) -> Dict:
         # Meta
         "fileName": filename,
         "uploadDate": datetime.utcnow().isoformat(),
-        "uniqueId": filename.replace(".pdf", "")
+        "uniqueId": filename.replace(".pdf", ""),
+
+        **yes_no_conditions
+    }
+
+@app.post("/extract-chem")
+async def extract_chem(file: UploadFile = File(...)) -> Dict:
+    try:
+        content = await file.read()
+        pdf = fitz.open(stream=content, filetype="pdf")
+        text = "\n".join(page.get_text() for page in pdf)
+        pdf.close()
+
+        # Save locally
+        file_path = os.path.join(UPLOAD_DIR, file.filename)
+        with open(file_path, "wb") as f:
+            f.write(content)
+
+        
+        data = parse_chemistry(text, file.filename)
+        return {
+            "data": data,
+            "pdfUrl": f"http://localhost:8000/view-pdf/{file.filename}"
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error extracting Chemistry data: {str(e)}")
+
+def parse_chemistry(text: str, filename: str) -> Dict:
+    def extract(pattern, default=""):
+        match = re.search(pattern, text, re.IGNORECASE)
+        return match.group(1).strip() if match else default
+
+    # Header info
+    name = extract(r"NAME\s*:\s*(.+)")
+    mrn = extract(r"MRN\s*:\s*(.+)")
+    gender = extract(r"GENDER\s*:\s*(\w+)")
+    age = extract(r"AGE\s*:\s*(\d+)")
+    care_provider = extract(r"CARE\s*PROVIDER\s*:\s*(.+)")
+    location = extract(r"LOCATION\s*:\s*(.+)")
+    dob = extract(r"DATE\s*OF\s*BIRTH\s*:\s*(.+)")
+    collection_dt = extract(r"COLLECTION\s*DATE/TIME\s*:\s*(.+)")
+    validated = extract(r"RESULT\s*VALIDATED\s*:\s*(.+)")
+
+    # Extract test result rows (tabular)
+    tests = []
+    pattern = re.compile(
+        r"(?P<test>[\w\s\/\-]+?)\s+(?P<result>[\d.]+)\s+(?P<unit>[a-zA-Z/%μ]+)\s+(?P<ref>[\d\-<>=. ]+)",
+        re.MULTILINE
+    )
+    for match in pattern.finditer(text):
+        tests.append({
+            "test_name": match.group("test").strip(),
+            "result": match.group("result"),
+            "unit": match.group("unit"),
+            "reference_range": match.group("ref").strip()
+        })
+
+    # Also extract known chemistry values (optional structured view)
+    lab_data = {
+        "fbs": extract(r"FBS\s*[:\-]?\s*([\d.]+)"),
+        "bua": extract(r"(?:BUA|URIC ACID)\s*[:\-]?\s*([\d.]+)"),
+        "creatinine": extract(r"CREATININE\s*[:\-]?\s*([\d.]+)"),
+        "sgpt": extract(r"(?:ALT|SGPT)\s*[:\-]?\s*([\d.]+)"),
+        "cholesterol": extract(r"CHOLESTEROL\s*[:\-]?\s*([\d.]+)"),
+        "hdl": extract(r"HDL\s*[:\-]?\s*([\d.]+)"),
+        "ldl": extract(r"LDL\s*[:\-]?\s*([\d.]+)"),
+        "triglycerides": extract(r"TRIGLYCERIDES\s*[:\-]?\s*([\d.]+)")
+    }
+
+    return {
+        "uniqueId": filename.replace(".pdf", ""),
+        "fileName": filename,
+        "uploadDate": datetime.utcnow().isoformat(),
+        "name": name,
+        "mrn": mrn,
+        "gender": gender,
+        "age": age,
+        "care_provider": care_provider,
+        "location": location,
+        "dob": dob,
+        "collection_datetime": collection_dt,
+        "result_validated": validated,
+        "test_results": tests,
+        **lab_data  # Merges structured fields
     }
