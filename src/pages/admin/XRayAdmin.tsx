@@ -80,7 +80,7 @@ const XRayAdmin: React.FC = () => {
       formData.append("file", file);
 
       try {
-        const res = await fetch("http://localhost:8000/upload-and-store?type=xray", {
+        const res = await fetch("https://apecentral.onrender.com/upload-and-store?type=xray", {
           method: "POST",
           body: formData,
         });
