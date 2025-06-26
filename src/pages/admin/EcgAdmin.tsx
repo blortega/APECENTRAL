@@ -87,7 +87,7 @@ const EcgAdmin: React.FC = () => {
       formData.append("file", file);
 
       try {
-        const res = await fetch("http://localhost:8000/upload-and-store?type=ecg", {
+        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/upload-and-store?type=ecg`, {
           method: "POST",
           body: formData,
         });
@@ -549,7 +549,7 @@ const EcgAdmin: React.FC = () => {
                     <h4 className={styles.sectionSubtitle}>📄 PDF Report</h4>
                 
                     <iframe
-                      src={selectedRecord.pdfUrl}
+                      src={`${import.meta.env.VITE_BACKEND_URL}/view-pdf/${selectedRecord.pdfUrl}`}
                       width="100%"
                       height="500px"
                       style={{
@@ -562,7 +562,7 @@ const EcgAdmin: React.FC = () => {
                 
                     <div className={styles.pdfActions}>
                       <a
-                        href={selectedRecord.pdfUrl}
+                        href={`${import.meta.env.VITE_BACKEND_URL}/view-pdf/${selectedRecord.pdfUrl}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className={styles.viewPdfButton}
@@ -571,7 +571,7 @@ const EcgAdmin: React.FC = () => {
                       </a>
                 
                       <a
-                        href={selectedRecord.pdfUrl}
+                        href={`${import.meta.env.VITE_BACKEND_URL}/view-pdf/${selectedRecord.pdfUrl}`}
                         download={selectedRecord.fileName}
                         className={styles.downloadPdfButton}
                       >

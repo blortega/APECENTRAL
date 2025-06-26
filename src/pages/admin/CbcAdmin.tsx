@@ -106,7 +106,7 @@ const CbcAdmin: React.FC = () => {
       formData.append("file", file);
 
       try {
-        const res = await fetch("https://apecentral.onrender.com/upload-and-store?type=cbc", {
+        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/upload-and-store?type=cbc`, {
           method: "POST",
           body: formData,
         });
@@ -843,7 +843,7 @@ const CbcAdmin: React.FC = () => {
                 
                     <div className={styles.pdfActions}>
                       <a
-                        href={selectedRecord.pdfUrl}
+                        href={`${import.meta.env.VITE_BACKEND_URL}/view-pdf/${selectedRecord.pdfUrl}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className={styles.viewPdfButton}
@@ -852,7 +852,7 @@ const CbcAdmin: React.FC = () => {
                       </a>
                 
                       <a
-                        href={selectedRecord.pdfUrl}
+                        href={`${import.meta.env.VITE_BACKEND_URL}/view-pdf/${selectedRecord.pdfUrl}`}
                         download={selectedRecord.fileName}
                         className={styles.downloadPdfButton}
                       >
