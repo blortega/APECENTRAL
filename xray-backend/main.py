@@ -8,6 +8,7 @@ import re
 import os
 from pathlib import Path
 import shutil
+import traceback
 
 
 app = FastAPI()
@@ -51,6 +52,12 @@ async def upload_and_store(file: UploadFile = File(...), type: str= "xray") -> D
             data = parse_cbc_data(full_text, file.filename)
         elif type == "urinalysis":
             data = parse_urinalysis(full_text, file.filename)
+        elif type == "lipid":
+            data = parse_lipid_profile(full_text, file.filename)
+        elif type == "ecg":
+            data = parse_ecg_data(full_text, file.filename)
+        elif type == "medical":
+            data = parse_medical_exam(full_text, file.filename)
         else:
             raise HTTPException(status_code=400, detail=f"Unknown report type: {type}")
 
@@ -60,6 +67,7 @@ async def upload_and_store(file: UploadFile = File(...), type: str= "xray") -> D
         }
 
     except Exception as e:
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to process PDF: {str(e)}")
 
 @app.get("/view-pdf/{filename}")
@@ -509,7 +517,6 @@ def parse_urinalysis(text: str, filename: str) -> Dict:
         "uploadDate": datetime.utcnow().isoformat(),
         "uniqueId": filename.replace(".pdf", "")
     }
-
 @app.post("/extract-ecg")
 async def extract_ecg(file: UploadFile = File(...)):
     try:
@@ -518,52 +525,55 @@ async def extract_ecg(file: UploadFile = File(...)):
         text = "".join([page.get_text() for page in pdf])
         pdf.close()
 
-        # Print for debug
+        # Debug print
         print("Extracted ECG text:\n", text)
 
-        def extract(pattern, default=""):
-            match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE | re.DOTALL)
-            return match.group(1).strip() if match and match.group(1) else default
+        data = parse_ecg_data(text, file.filename)
 
-        extracted_data = {
-            "pid_no": extract(r"PID\s*No\s*[:\-]?\s*(\d+)"),
-            "date": extract(r"Date\s*[:\-]?\s*([0-9]{1,2}-[A-Z]{3}-[0-9]{4})"),
-            "patient_name": extract(r"Patient(?:'|')?s\s*Name\s*[:\-]?\s*([A-Z ]+)"),
-            "referring_physician": extract(r"Referring\s*Physician\s*[:\-]?\s*([A-Z ]+)\s+Birth"),
-            "hr": extract(r"HR\s*[:\-]?\s*(\d+\s*bpm)"),
-            "bp": extract(r"BP\s*[:\-]?\s*([\d]+\/[\d]+\s*mmHg)"),
-            "age": extract(r"Age/Sex\s*[:\-]?\s*(\d+)"),
-            "sex": extract(r"Age/Sex\s*[:\-]?\s*\d+\/([MF])"),
-            "birth_date": extract(r"Birth\s*date\s*[:\-]?\s*([0-9]{2}-[A-Z]{3}-[0-9]{4})"),
-            "qrs": extract(r"\bQRS\s+(\d+\s*ms)"),
-            "qt_qtc": extract(r"\bQT/QTcBaZ\s+([\d]+\/[\d]+\s*ms)"),
-            "pr": extract(r"\bPR\s+(\d+\s*ms)"),
-            "p": extract(r"^\s*P\s+(\d+\s*ms)", default=""),  # anchored line
-            "rr_pp": extract(r"RR/PP\s+([\d]+\/[\d]+\s*ms)"),
-            # FIXED: P/QRS/T pattern - handles the degrees format properly
-            "pqrst": extract(r"P/QRS/T\s+([\d\-\/\s]+)\s*degrees"),
-            # FIXED: Interpretation pattern - stops before doctor's name/title
-            "interpretation": extract(r"INTERPRETATION\s*[:\-]?\s*\n?\s*([^A-Z\n]*(?:[a-z][^A-Z\n]*)*?)(?=\s+[A-Z]{2,}(?:\s+[A-Z]+)*\s*,?\s*(?:MD|CARDIOLOGIST)|$)")
-        }
-
-        # Add metadata
-        extracted_data.update({
-            "fileName": file.filename,
-            "uploadDate": datetime.utcnow().isoformat(),
-            "uniqueId": file.filename.replace(".pdf", "")  # ✅ required for Firestore lookup
-        })
-
-        # Clean up values (except fileName and uploadDate)
-        for key, value in extracted_data.items():
-            if isinstance(value, str) and key not in ["fileName", "uploadDate", "uniqueId"]:
-                extracted_data[key] = re.sub(r'\s+', ' ', value).strip()
-
-        return extracted_data
+        return data
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing ECG file: {str(e)}")
-    
 
+
+def parse_ecg_data(text: str, filename: str) -> Dict:
+    def extract(pattern, default=""):
+        match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE | re.DOTALL)
+        return match.group(1).strip() if match and match.group(1) else default
+
+    extracted_data = {
+        "pid_no": extract(r"PID\s*No\s*[:\-]?\s*(\d+)"),
+        "date": extract(r"Date\s*[:\-]?\s*([0-9]{1,2}-[A-Z]{3}-[0-9]{4})"),
+        "patient_name": extract(r"Patient(?:'|')?s\s*Name\s*[:\-]?\s*([A-Z ]+)"),
+        "referring_physician": extract(r"Referring\s*Physician\s*[:\-]?\s*([A-Z ]+)\s+Birth"),
+        "hr": extract(r"HR\s*[:\-]?\s*(\d+\s*bpm)"),
+        "bp": extract(r"BP\s*[:\-]?\s*([\d]+\/[\d]+\s*mmHg)"),
+        "age": extract(r"Age/Sex\s*[:\-]?\s*(\d+)"),
+        "sex": extract(r"Age/Sex\s*[:\-]?\s*\d+\/([MF])"),
+        "birth_date": extract(r"Birth\s*date\s*[:\-]?\s*([0-9]{2}-[A-Z]{3}-[0-9]{4})"),
+        "qrs": extract(r"\bQRS\s+(\d+\s*ms)"),
+        "qt_qtc": extract(r"\bQT/QTcBaZ\s+([\d]+\/[\d]+\s*ms)"),
+        "pr": extract(r"\bPR\s+(\d+\s*ms)"),
+        "p": extract(r"^\s*P\s+(\d+\s*ms)", default=""),  # anchored line
+        "rr_pp": extract(r"RR/PP\s+([\d]+\/[\d]+\s*ms)"),
+        "pqrst": extract(r"P/QRS/T\s+([\d\-\/\s]+)\s*degrees"),
+        "interpretation": extract(r"INTERPRETATION\s*[:\-]?\s*\n?\s*([^A-Z\n]*(?:[a-z][^A-Z\n]*)*?)(?=\s+[A-Z]{2,}(?:\s+[A-Z]+)*\s*,?\s*(?:MD|CARDIOLOGIST)|$)")
+    }
+
+    # Add metadata
+    extracted_data.update({
+        "fileName": filename,
+        "uploadDate": datetime.utcnow().isoformat(),
+        "uniqueId": filename.replace(".pdf", "")
+    })
+
+    # Clean string values
+    for key, value in extracted_data.items():
+        if isinstance(value, str) and key not in ["fileName", "uploadDate", "uniqueId"]:
+            extracted_data[key] = re.sub(r'\s+', ' ', value).strip()
+
+    return extracted_data
+    
 @app.post("/extract-lipid-profile")
 async def extract_lipid_profile(file: UploadFile = File(...)) -> Dict:
     content = await file.read()
@@ -847,3 +857,236 @@ VLDL L 13.60 mg/dL 20 - 30"""
 
 # Uncomment to test:
 # test_with_actual_data()
+
+@app.post("/extract-medical-exam")
+async def extract_medical_exam(file: UploadFile = File(...)) -> Dict:
+    content = await file.read()
+    pdf = fitz.open(stream=content, filetype="pdf")
+    text = "".join(page.get_text() for page in pdf)
+    pdf.close()
+    
+    # Save the PDF file locally
+    file_path = UPLOAD_DIR / file.filename
+    with open(file_path, "wb") as f:
+        f.write(content)
+    
+    result = parse_medical_exam(text, file.filename)
+    result["pdf_path"] = str(file_path)
+    
+    return result
+
+def parse_medical_exam(text: str, filename: str) -> Dict:
+    """Parse medical examination report and extract all relevant information"""
+    print("===== RAW MEDICAL EXAM TEXT =====")
+    print(text)
+    print("=" * 50)
+    
+    def extract_field(pattern, default=""):
+        match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
+        try:
+            result = match.group(1).strip()
+            print(f"[FIELD MATCH] {pattern} → {result}")
+            return result
+        except (AttributeError, IndexError):
+            print(f"[FIELD MISSING] {pattern} → DEFAULT: {default}")
+            return default
+
+
+    
+    def extract_yes_no_condition(condition_name):
+        """Extract YES/NO conditions from medical history"""
+        # Look for the condition followed by checkboxes or YES/NO indicators
+        pattern = rf"{re.escape(condition_name)}\s*(?:YES|NO|\s)*([XYN][ESO]*)"
+        match = re.search(pattern, text, re.IGNORECASE)
+        return match.group(1) if match else ""
+    
+    def extract_vital_signs():
+        """Extract vital signs from the formatted table"""
+        vitals = {}
+        
+        # Blood Pressure (format: 110/70)
+        bp_match = re.search(r"Blood Pressure.*?(\d+/\d+)", text, re.IGNORECASE | re.DOTALL)
+        vitals["blood_pressure"] = bp_match.group(1) if bp_match else ""
+        
+        # Pulse
+        pulse_match = re.search(r"Pulse.*?(\d+)", text, re.IGNORECASE | re.DOTALL)
+        vitals["pulse"] = pulse_match.group(1) if pulse_match else ""
+        
+        # SpO2
+        spo2_match = re.search(r"Spo02.*?(\d+)", text, re.IGNORECASE | re.DOTALL)
+        vitals["spo2"] = spo2_match.group(1) if spo2_match else ""
+        
+        # Respiratory Rate
+        resp_match = re.search(r"Res.*?(\d+)", text, re.IGNORECASE | re.DOTALL)
+        vitals["respiratory_rate"] = resp_match.group(1) if resp_match else ""
+        
+        # Temperature
+        temp_match = re.search(r"TEMP.*?([\d.]+)", text, re.IGNORECASE | re.DOTALL)
+        vitals["temperature"] = temp_match.group(1) if temp_match else ""
+        
+        return vitals
+    
+    def extract_anthropometrics():
+        """Extract height, weight, BMI, IBW"""
+        anthro = {}
+        
+        # Height
+        height_match = re.search(r"HEIGHT:.*?(\d+)", text, re.IGNORECASE)
+        anthro["height"] = height_match.group(1) if height_match else ""
+        
+        # Weight
+        weight_match = re.search(r"WEIGHT:.*?([\d.]+)", text, re.IGNORECASE)
+        anthro["weight"] = weight_match.group(1) if weight_match else ""
+        
+        # BMI
+        bmi_match = re.search(r"BMI:\s*([\d.]+)", text, re.IGNORECASE)
+        anthro["bmi"] = bmi_match.group(1) if bmi_match else ""
+        
+        # IBW (Ideal Body Weight)
+        ibw_match = re.search(r"IBW:.*?([\d.]+)", text, re.IGNORECASE)
+        anthro["ibw"] = ibw_match.group(1) if ibw_match else ""
+        
+        return anthro
+    
+    def extract_visual_acuity():
+        """Extract visual acuity information"""
+        visual = {}
+        
+        # Vision adequacy
+        adequate_match = re.search(r"ADEQUATE:\s*([A-Z]+)", text, re.IGNORECASE)
+        visual["vision_adequacy"] = adequate_match.group(1) if adequate_match else ""
+        
+        # Extract OD/OS values if present
+        od_match = re.search(r"OD=([J\d]+)", text)
+        visual["od"] = od_match.group(1) if od_match else ""
+        
+        os_match = re.search(r"OS=([J\d]+)", text)
+        visual["os"] = os_match.group(1) if os_match else ""
+        
+        return visual
+    
+    def extract_lab_findings():
+        """Extract laboratory findings"""
+        labs = {}
+        
+        # CBC
+        cbc_match = re.search(r"Complete Blood Count\s+(Unremarkable|[A-Za-z\s]+)", text, re.IGNORECASE)
+        labs["cbc"] = cbc_match.group(1) if cbc_match else ""
+        
+        # Urinalysis
+        urine_match = re.search(r"Urinalys\s+(Unremarkable|[A-Za-z\s]+)", text, re.IGNORECASE)
+        labs["urinalysis"] = urine_match.group(1) if urine_match else ""
+        
+        # Blood Chemistry
+        chem_match = re.search(r"Blood Chemistry\s+(Unremarkable|[A-Za-z\s]+)", text, re.IGNORECASE)
+        labs["blood_chemistry"] = chem_match.group(1) if chem_match else ""
+        
+        # Chest X-ray
+        xray_match = re.search(r"Chest X-ray\s+([A-Za-z\s]+?)(?=PA LORDOTIC|ECG|\n)", text, re.IGNORECASE)
+        labs["chest_xray"] = xray_match.group(1).strip() if xray_match else ""
+        
+        # ECG
+        ecg_match = re.search(r"ECG\s+(Unremarkable|[A-Za-z\s]+)", text, re.IGNORECASE)
+        labs["ecg"] = ecg_match.group(1) if ecg_match else ""
+        
+        return labs
+    
+    def extract_medical_classification():
+        """Extract medical fitness classification and recommendations"""
+        classification = {}
+        
+        # Fitness status
+        fit_match = re.search(r"RECOMMENDATIONS:\s*(FIT|UNFIT)", text, re.IGNORECASE)
+        classification["fitness_status"] = fit_match.group(1) if fit_match else ""
+        
+        # Class (A, B, C, D, E, PENDING)
+        class_match = re.search(r'Class "([ABCDE]|PENDING)"', text)
+        classification["medical_class"] = class_match.group(1) if class_match else ""
+        
+        # Needs treatment
+        treatment_match = re.search(r"Needs treatment/ correction\s+([A-Z\s]+)", text, re.IGNORECASE)
+        classification["needs_treatment"] = treatment_match.group(1).strip() if treatment_match else ""
+        
+        # Remarks
+        remarks_match = re.search(r"Remarks:\s+([a-zA-Z\s]+)", text, re.IGNORECASE)
+        classification["remarks"] = remarks_match.group(1).strip() if remarks_match else ""
+        
+        return classification
+    
+    # Extract all data
+    vitals = extract_vital_signs()
+    anthro = extract_anthropometrics()
+    visual = extract_visual_acuity()
+    labs = extract_lab_findings()
+    classification = extract_medical_classification()
+    
+    return {
+        # Basic Patient Information
+        "patient_name": extract_field(r"PATIENT NAME:\s*([A-Z\s]+)\s+PID:"),
+        "pid": extract_field(r"PID:\s*(\d+)"),
+        "date_of_birth": extract_field(r"DATE OF BIRTH:\s*([\d/]+)"),
+        "age": int(extract_field(r"AGE:\s*(\d+)", "0")),
+        "sex": extract_field(r"SEX:\s*([A-Z]+)"),
+        "date_of_examination": extract_field(r"DATE OF.*?(\d{2}\s+\d{2}\s+\d{4})"),
+        "civil_status": extract_field(r"CIVIL STATUS:\s*([A-Z]+)"),
+        "company": extract_field(r"COMPANY:\s*([A-Z\s]+)\s+OCCUPATION:"),
+        "occupation": extract_field(r"OCCUPATION:\s*$", ""),  # Often empty in the format
+        
+        # Medical History
+        "present_illness": extract_field(r"PRESENT ILLNESS:\s*([A-Z\s]*)\s+ALLERGY:"),
+        "food_allergy": extract_field(r"Food:\s*([A-Z]+)"),
+        "medication_allergy": extract_field(r"Medication:\s*([A-Z]+)"),
+        "past_consultation": extract_field(r"If YES, specify:\s*([A-Z\d\s-]+)"),
+        "maintenance_medications": extract_field(r"If YES, specify:\s*([A-Z\s\d]+)"),
+        "previous_hospitalizations": extract_field(r"Previous Hospitalizations:\s*([A-Z\s,\d-]+)"),
+        
+        # Obstetrical History (for females)
+        "menstrual_history_lmp": extract_field(r"LMP\s*:\s*([A-Z\s\d]+)"),
+        "obstetrical_history": extract_field(r"OBSTETRICAL HISTORY:\s*([A-Z\d\s()]+)"),
+        
+        # Vital Signs
+        "blood_pressure": vitals.get("blood_pressure", ""),
+        "pulse": vitals.get("pulse", ""),
+        "spo2": vitals.get("spo2", ""),
+        "respiratory_rate": vitals.get("respiratory_rate", ""),
+        "temperature": vitals.get("temperature", ""),
+        
+        # Anthropometrics
+        "height": anthro.get("height", ""),
+        "weight": anthro.get("weight", ""),
+        "bmi": anthro.get("bmi", ""),
+        "ibw": anthro.get("ibw", ""),
+        
+        # Visual Acuity
+        "vision_adequacy": visual.get("vision_adequacy", ""),
+        "vision_od": visual.get("od", ""),
+        "vision_os": visual.get("os", ""),
+        
+        # Laboratory Findings
+        "cbc_result": labs.get("cbc", ""),
+        "urinalysis_result": labs.get("urinalysis", ""),
+        "blood_chemistry_result": labs.get("blood_chemistry", ""),
+        "chest_xray_result": labs.get("chest_xray", ""),
+        "ecg_result": labs.get("ecg", ""),
+        
+        # Medical Classification
+        "fitness_status": classification.get("fitness_status", ""),
+        "medical_class": classification.get("medical_class", ""),
+        "needs_treatment": classification.get("needs_treatment", ""),
+        "remarks": classification.get("remarks", ""),
+        
+        # Medical Personnel
+        "examining_physician": extract_field(r"KRIZIA KATE LANUTAN LIAO\s+([A-Z\s]+)\s+DR\."),
+        "evaluating_personnel": extract_field(r"DR\.\s+([A-Z\s-]+)"),
+        "physician_prc": extract_field(r"PRC#:\s*(\d+)"),
+        
+        # Dates
+        "date_of_initial_peme": extract_field(r"Date of Initial PEME:\s*([\d/]+)"),
+        "date_of_fitness": extract_field(r"Date of Fitness:\s*([\d/]*)"),
+        "valid_until": extract_field(r"Valid Until:\s*([\d/]*)"),
+        
+        # Meta
+        "fileName": filename,
+        "uploadDate": datetime.utcnow().isoformat(),
+        "uniqueId": filename.replace(".pdf", "")
+    }
