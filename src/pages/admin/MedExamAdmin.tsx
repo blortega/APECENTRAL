@@ -112,6 +112,7 @@ const MedExamAdmin: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  
   // Initialize the activity hook
   const {
     generateActivity,
@@ -635,6 +636,24 @@ const MedExamAdmin: React.FC = () => {
                 </div>
               </div>
 
+              <div className={styles.visionSection}>
+  <h4 className={styles.sectionSubtitle}>Vision Assessment</h4>
+  <div className={styles.infoGrid}>
+    <div className={styles.infoItem}>
+      <span className={styles.infoLabel}>Vision Adequacy:</span>
+      <span className={styles.infoValue}>{selectedRecord.vision_adequacy}</span>
+    </div>
+    <div className={styles.infoItem}>
+      <span className={styles.infoLabel}>OD:</span>
+      <span className={styles.infoValue}>{selectedRecord.vision_od}</span>
+    </div>
+    <div className={styles.infoItem}>
+      <span className={styles.infoLabel}>OS:</span>
+      <span className={styles.infoValue}>{selectedRecord.vision_os}</span>
+    </div>
+  </div>
+</div>
+
               <div className={styles.medicalHistorySection}>
                 <h4 className={styles.sectionSubtitle}>Medical History</h4>
                 <div className={styles.infoItem}>
@@ -794,42 +813,50 @@ const MedExamAdmin: React.FC = () => {
                       {selectedRecord.physician_prc}
                     </span>
                   </div>
-                  {selectedRecord?.pdfUrl && (
-  <div className={styles.pdfSection}>
-    <h4 className={styles.sectionSubtitle}>📄 PDF Report</h4>
+                  {selectedRecord?.pdfUrl && (() => {
+  const baseUrl = import.meta.env.VITE_BACKEND_URL;
+  const isFullUrl = selectedRecord.pdfUrl.startsWith("http");
+  const pdfPath = isFullUrl
+    ? selectedRecord.pdfUrl
+    : `${baseUrl}/view-pdf/${selectedRecord.pdfUrl}`;
 
-    <iframe
-      src={`${import.meta.env.VITE_BACKEND_URL}/view-pdf/${selectedRecord.pdfUrl}`}
-      width="100%"
-      height="500px"
-      style={{
-        border: "1px solid #ccc",
-        marginTop: "10px",
-        borderRadius: "8px",
-      }}
-      title="PDF Preview"
-    />
+  return (
+    <div className={styles.pdfSection}>
+      <h4 className={styles.sectionSubtitle}>📄 PDF Report</h4>
 
-    <div className={styles.pdfActions}>
-      <a
-        href={`${import.meta.env.VITE_BACKEND_URL}/view-pdf/${selectedRecord.pdfUrl}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={styles.viewPdfButton}
-      >
-        🔗 View in New Tab
-      </a>
+      <iframe
+        src={pdfPath}
+        width="100%"
+        height="500px"
+        style={{
+          border: "1px solid #ccc",
+          marginTop: "10px",
+          borderRadius: "8px",
+        }}
+        title="PDF Preview"
+      />
 
-      <a
-        href={`${import.meta.env.VITE_BACKEND_URL}/view-pdf/${selectedRecord.pdfUrl}`}
-        download={selectedRecord.fileName}
-        className={styles.downloadPdfButton}
-      >
-        ⬇️ Download PDF
-      </a>
+      <div className={styles.pdfActions}>
+        <a
+          href={pdfPath}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={styles.viewPdfButton}
+        >
+          🔗 View in New Tab
+        </a>
+
+        <a
+          href={pdfPath}
+          download={selectedRecord.fileName}
+          className={styles.downloadPdfButton}
+        >
+          ⬇️ Download PDF
+        </a>
+      </div>
     </div>
-  </div>
-)}
+  );
+})()}
                 </div>
               </div>
             </div>

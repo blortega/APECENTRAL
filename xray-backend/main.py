@@ -174,20 +174,33 @@ def parse_cbc_data(text: str, filename: str) -> Dict:
         }
     
     def extract_absolute_block(text: str) -> str:
-        if not absolute_count_block:
-            print("⚠️ Absolute WBC block not found in:", filename)
-        # Extract the WBC Absolute Count section specifically
-        patterns = [
+        # First try with ABSOLUTE COUNT anchor
+        match = re.search(r"(?<=ABSOLUTE COUNT)[\s\S]*?(?=\n[A-Z])", text, re.IGNORECASE)
+        if match and match.group(0).strip():
+            absolute_count_block = match.group(0).strip()
+            print("[DEBUG] Extracted ABSOLUTE COUNT block:")
+            print(absolute_count_block)
+            return absolute_count_block
+
+        # Fallback: Try WBC Absolute Count patterns
+        fallback_patterns = [
             r"WBC\s+Absolute\s+Count\s*(.*?)(?=\n\s*MEDICAL|\n\s*PRC|\Z)",  # Until signatures
-            r"WBC\s+Absolute\s+Count\s*(.*?)(?=\n[A-Z][A-Z\s]*:)",  # Until next section
-            r"WBC\s+Absolute\s+Count\s*(.*)"  # Everything after WBC Absolute Count
+            r"WBC\s+Absolute\s+Count\s*(.*?)(?=\n[A-Z][A-Z\s]*:)",          # Until next section
+            r"WBC\s+Absolute\s+Count\s*(.*)"                               # Everything after
         ]
-        
-        for pattern in patterns:
+
+        for pattern in fallback_patterns:
             match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
             if match and match.group(1).strip():
-                return match.group(1).strip()
+                block = match.group(1).strip()
+                print("[DEBUG] Extracted fallback WBC Absolute Count block:")
+                print(block)
+                return block
+
+        # If all else fails
+        print("[DEBUG] No ABSOLUTE COUNT block found.")
         return ""
+
 
     def get_cbc_value_from_block(label: str, block: str):
         # Updated pattern to handle L/H flags in absolute count block
