@@ -94,7 +94,7 @@ const LipidAdmin: React.FC = () => {
       formData.append("file", file);
 
       try {
-        const res = await fetch("http://localhost:8000/upload-and-store?type=lipid", {
+        const res = await fetch("https://apecentral.onrender.com/upload-and-store?type=lipid", {
           method: "POST",
           body: formData,
         });

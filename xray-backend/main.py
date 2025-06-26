@@ -16,7 +16,7 @@ app = FastAPI()
 # Update your existing CORS middleware configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],  # Add both localhost variants
+    allow_origins=["https://apecentral.vercel.app"],  # Add both localhost variants
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],  # Explicitly list methods
     allow_headers=["*"],
@@ -65,7 +65,7 @@ async def upload_and_store(file: UploadFile = File(...), type: str= "xray") -> D
 
         return {
             "data": data,
-            "pdfUrl": f"http://localhost:8000/view-pdf/{file.filename}"
+            "pdfUrl": f"https://apecentral.onrender.com/view-pdf/{file.filename}"
         }
 
     except Exception as e:
@@ -1131,7 +1131,7 @@ async def extract_chem(file: UploadFile = File(...)) -> Dict:
         data = parse_chemistry(text, file.filename)
         return {
             "data": data,
-            "pdfUrl": f"http://localhost:8000/view-pdf/{file.filename}"
+            "pdfUrl": f"https://apecentral.onrender.com/view-pdf/{file.filename}"
         }
 
     except Exception as e:
