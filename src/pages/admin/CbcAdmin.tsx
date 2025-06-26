@@ -843,7 +843,7 @@ const CbcAdmin: React.FC = () => {
                 
                     <div className={styles.pdfActions}>
                       <a
-                        href={`${import.meta.env.VITE_BACKEND_URL}/view-pdf/${selectedRecord.pdfUrl}`}
+                        href={selectedRecord.pdfUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         className={styles.viewPdfButton}
@@ -852,7 +852,7 @@ const CbcAdmin: React.FC = () => {
                       </a>
                 
                       <a
-                        href={`${import.meta.env.VITE_BACKEND_URL}/view-pdf/${selectedRecord.pdfUrl}`}
+                        href={selectedRecord.pdfUrl}
                         download={selectedRecord.fileName}
                         className={styles.downloadPdfButton}
                       >

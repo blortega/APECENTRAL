@@ -1,4 +1,5 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request
+from urllib.parse import quote
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 import fitz  # PyMuPDF
@@ -12,6 +13,9 @@ import traceback
 
 
 app = FastAPI()
+
+UPLOAD_DIR = "uploaded_pdfs"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # Update your existing CORS middleware configuration
 app.add_middleware(
@@ -27,25 +31,29 @@ app.add_middleware(
 async def root():
     return {"message": "Medical Records API is running"}
 
-UPLOAD_DIR = "uploaded_pdfs"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+
 
 @app.post("/upload-and-store")
-async def upload_and_store(file: UploadFile = File(...), type: str= "xray") -> Dict:
+async def upload_and_store(request: Request, file: UploadFile = File(...), type: str = "xray") -> Dict:
     try:
-        # Save PDF to disk locally
+        # Validate type
+        valid_types = ["xray", "cbc", "urinalysis", "lipid", "ecg", "medical", "chem"]
+        if type not in valid_types:
+            raise HTTPException(status_code=400, detail=f"Unknown report type: {type}. Expected one of: {', '.join(valid_types)}")
+
+        # Save PDF to disk
         unique_id = Path(file.filename).stem
         file_path = os.path.join(UPLOAD_DIR, file.filename)
+        content = await file.read()
         with open(file_path, "wb") as f:
-            content = await file.read()
             f.write(content)
 
-        # Extract data
+        # Extract text
         pdf = fitz.open(stream=content, filetype="pdf")
-        full_text = ""
-        for page in pdf:
-            full_text += page.get_text()
+        full_text = "".join(page.get_text() for page in pdf)
+        pdf.close()
 
+        # Dispatch to correct parser
         if type == "xray":
             data = parse_xray_data(full_text, file.filename)
         elif type == "cbc":
@@ -53,19 +61,21 @@ async def upload_and_store(file: UploadFile = File(...), type: str= "xray") -> D
         elif type == "urinalysis":
             data = parse_urinalysis(full_text, file.filename)
         elif type == "lipid":
-            data = parse_lipid_profile(full_text, file.filename)
+            data = parse_lipid_profile(content.decode("utf-8"), file.filename)
         elif type == "ecg":
             data = parse_ecg_data(full_text, file.filename)
         elif type == "medical":
             data = parse_medical_exam(full_text, file.filename)
         elif type == "chem":
             data = parse_chemistry(full_text, file.filename)
-        else:
-            raise HTTPException(status_code=400, detail=f"Unknown report type: {type}")
+
+        # Dynamically get base URL
+        base_url = str(request.base_url).rstrip("/")
+        encoded_filename = quote(file.filename)
 
         return {
             "data": data,
-            "pdfUrl": f"https://apecentral.onrender.com/view-pdf/{file.filename}"
+            "pdfUrl": f"{base_url}/view-pdf/{encoded_filename}"
         }
 
     except Exception as e:
@@ -74,10 +84,16 @@ async def upload_and_store(file: UploadFile = File(...), type: str= "xray") -> D
 
 @app.get("/view-pdf/{filename}")
 def view_pdf(filename: str):
-    file_path = os.path.join(UPLOAD_DIR, filename)
-    if not os.path.exists(file_path):
+    safe_path = Path(UPLOAD_DIR) / Path(filename).name  # strips any subdir tricks
+    if not safe_path.exists():
         raise HTTPException(status_code=404, detail="PDF not found")
-    return FileResponse(path=file_path, media_type="application/pdf", filename=filename)
+    return FileResponse(
+    path=safe_path,
+    media_type="application/pdf",
+    filename=filename,
+    headers={"Content-Disposition": f'inline; filename="{filename}"'}
+    )
+
 
 @app.post("/extract-xray")
 async def extract_xray(file: UploadFile = File(...)) -> Dict:
@@ -100,16 +116,24 @@ def parse_xray_data(text: str, filename: str) -> Dict:
         pattern = rf"{start}\s*:\s*(.*?)(?=\n{end}\s*:|\Z)"
         match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
         return match.group(1).strip() if match else ""
+    
+    def extract_age():
+        age_text = extract("Age")
+        match = re.search(r'\d+', age_text)
+        return int(match.group()) if match else 0
+    
+    def extract_name():
+        return extract("Patient's Name") or extract("Name")
 
     return {
-        "patientName": extract("Patient's Name"),
+        "patientName": extract_name(),
         "dateOfBirth": extract("Date of Birth"),
-        "age": int(re.search(r'\d+', extract("Age") or "0").group()),
+        "age": extract_age(),
         "gender": extract("Gender"),
         "company": extract("Company"),
         "examination": extract("Examination"),
         "reportDate": extract("Date"),
-        "interpretation": extract_between("Interpretation", "Impression"),
+        "interpretation": extract_between("Interpretation", "Impression") or extract("Interpretation"),
         "impression": extract("Impression"),
         "fileName": filename,
         "uploadDate": datetime.utcnow().isoformat(),
@@ -149,6 +173,8 @@ def parse_cbc_data(text: str, filename: str) -> Dict:
         }
     
     def extract_absolute_block(text: str) -> str:
+        if not absolute_count_block:
+            print("⚠️ Absolute WBC block not found in:", filename)
         # Extract the WBC Absolute Count section specifically
         patterns = [
             r"WBC\s+Absolute\s+Count\s*(.*?)(?=\n\s*MEDICAL|\n\s*PRC|\Z)",  # Until signatures
@@ -210,7 +236,7 @@ def parse_cbc_data(text: str, filename: str) -> Dict:
 
     return {
         # Patient Info
-        "patientName": extract_patient_info("Name"),
+        "patientName": extract_patient_info("Name").strip(),
         "mrn": extract_patient_info("MRN"),
         "gender": gender,
         "age": age,
@@ -275,7 +301,7 @@ def extract_urinalysis_value(text: str, label: str, ref_pattern: str = None):
     Extracts result, unit, and reference range for a urinalysis label.
     Handles cases where result+unit+label are squished together.
     """
-    import re
+
     
     # Pre-process known edge cases to make them easier to match
     spaced_text = (
@@ -544,30 +570,29 @@ def parse_ecg_data(text: str, filename: str) -> Dict:
         return match.group(1).strip() if match and match.group(1) else default
 
     extracted_data = {
-        "pid_no": extract(r"PID\s*No\s*[:\-]?\s*(\d+)"),
+        "pidNo": extract(r"PID\s*No\s*[:\-]?\s*(\d+)"),
         "date": extract(r"Date\s*[:\-]?\s*([0-9]{1,2}-[A-Z]{3}-[0-9]{4})"),
-        "patient_name": extract(r"Patient(?:'|')?s\s*Name\s*[:\-]?\s*([A-Z ]+)"),
-        "referring_physician": extract(r"Referring\s*Physician\s*[:\-]?\s*([A-Z ]+)\s+Birth"),
+        "patientName": extract(r"Patient(?:'|')?s\s*Name\s*[:\-]?\s*([A-Z ]+)"),
+        "referringPhysician": extract(r"Referring\s*Physician\s*[:\-]?\s*([A-Z ]+)\s+Birth"),
         "hr": extract(r"HR\s*[:\-]?\s*(\d+\s*bpm)"),
         "bp": extract(r"BP\s*[:\-]?\s*([\d]+\/[\d]+\s*mmHg)"),
         "age": extract(r"Age/Sex\s*[:\-]?\s*(\d+)"),
         "sex": extract(r"Age/Sex\s*[:\-]?\s*\d+\/([MF])"),
-        "birth_date": extract(r"Birth\s*date\s*[:\-]?\s*([0-9]{2}-[A-Z]{3}-[0-9]{4})"),
+        "birthDate": extract(r"Birth\s*date\s*[:\-]?\s*([0-9]{2}-[A-Z]{3}-[0-9]{4})"),
         "qrs": extract(r"\bQRS\s+(\d+\s*ms)"),
-        "qt_qtc": extract(r"\bQT/QTcBaZ\s+([\d]+\/[\d]+\s*ms)"),
+        "qtQtc": extract(r"\bQT/QTcBaZ\s+([\d]+\/[\d]+\s*ms)"),
         "pr": extract(r"\bPR\s+(\d+\s*ms)"),
-        "p": extract(r"^\s*P\s+(\d+\s*ms)", default=""),  # anchored line
-        "rr_pp": extract(r"RR/PP\s+([\d]+\/[\d]+\s*ms)"),
-        "pqrst": extract(r"P/QRS/T\s+([\d\-\/\s]+)\s*degrees"),
-        "interpretation": extract(r"INTERPRETATION\s*[:\-]?\s*\n?\s*([^A-Z\n]*(?:[a-z][^A-Z\n]*)*?)(?=\s+[A-Z]{2,}(?:\s+[A-Z]+)*\s*,?\s*(?:MD|CARDIOLOGIST)|$)")
-    }
+        "pWave": extract(r"^\s*P\s+(\d+\s*ms)", default=""),
+        "rrPp": extract(r"RR/PP\s+([\d]+\/[\d]+\s*ms)"),
+        "pqrstAxis": extract(r"P/QRS/T\s+([\d\-\/\s]+)\s*degrees"),
+        "interpretation": extract(r"INTERPRETATION\s*[:\-]?\s*\n?\s*([^A-Z\n]*(?:[a-z][^A-Z\n]*)*?)(?=\s+[A-Z]{2,}(?:\s+[A-Z]+)*\s*,?\s*(?:MD|CARDIOLOGIST)|$)"),
 
-    # Add metadata
-    extracted_data.update({
+        # Metadata
         "fileName": filename,
         "uploadDate": datetime.utcnow().isoformat(),
         "uniqueId": filename.replace(".pdf", "")
-    })
+    }
+
 
     # Clean string values
     for key, value in extracted_data.items():
@@ -578,19 +603,19 @@ def parse_ecg_data(text: str, filename: str) -> Dict:
     
 @app.post("/extract-lipid-profile")
 async def extract_lipid_profile(file: UploadFile = File(...)) -> Dict:
-    content = await file.read()
-    pdf = fitz.open(stream=content, filetype="pdf")
-    text = "".join(page.get_text() for page in pdf)
-    pdf.close()
-    
-    # Save the PDF file locally
-    with open(file_path, "wb") as f:
-        f.write(content)
-    
-    result = parse_lipid_profile(text, file.filename)
-    result["pdf_path"] = str(file_path)  # Add PDF path to result
-    
-    return result
+    try:
+        content = await file.read()
+        pdf = fitz.open(stream=content, filetype="pdf")
+        text = "".join(page.get_text() for page in pdf)
+        pdf.close()
+
+        # Parse data only — no file writing here
+        result = parse_lipid_profile(text, file.filename)
+        return result
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to extract lipid data: {str(e)}")
+
 
 def extract_patient_info(text: str, label: str, fallback: str = "") -> str:
     """Extract patient information from PDF text"""
@@ -862,20 +887,16 @@ VLDL L 13.60 mg/dL 20 - 30"""
 
 @app.post("/extract-medical-exam")
 async def extract_medical_exam(file: UploadFile = File(...)) -> Dict:
-    content = await file.read()
-    pdf = fitz.open(stream=content, filetype="pdf")
-    text = "".join(page.get_text() for page in pdf)
-    pdf.close()
-    
-    # Save the PDF file locally
-    file_path = UPLOAD_DIR / file.filename
-    with open(file_path, "wb") as f:
-        f.write(content)
-    
-    result = parse_medical_exam(text, file.filename)
-    result["pdf_path"] = str(file_path)
-    
-    return result
+    try:
+        content = await file.read()
+        pdf = fitz.open(stream=content, filetype="pdf")
+        text = "".join(page.get_text() for page in pdf)
+        pdf.close()
+
+        result = parse_lipid_profile(text, file.filename)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to extract lipid data: {str(e)}")
 
 def parse_medical_exam(text: str, filename: str) -> Dict:
     """Parse medical examination report and extract all relevant information"""
@@ -1122,23 +1143,14 @@ async def extract_chem(file: UploadFile = File(...)) -> Dict:
         text = "\n".join(page.get_text() for page in pdf)
         pdf.close()
 
-        # Save locally
-        file_path = os.path.join(UPLOAD_DIR, file.filename)
-        with open(file_path, "wb") as f:
-            f.write(content)
-
-        
-        data = parse_chemistry(text, file.filename)
-        return {
-            "data": data,
-            "pdfUrl": f"https://apecentral.onrender.com/view-pdf/{file.filename}"
-        }
+        result = parse_chemistry(text, file.filename)
+        return result
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error extracting Chemistry data: {str(e)}")
 
 def parse_chemistry(text: str, filename: str) -> Dict:
-    def extract(pattern, default=""):
+    def extract(pattern, default=None):
         match = re.search(pattern, text, re.IGNORECASE)
         return match.group(1).strip() if match else default
 
@@ -1156,15 +1168,16 @@ def parse_chemistry(text: str, filename: str) -> Dict:
     # Extract test result rows (tabular)
     tests = []
     pattern = re.compile(
-        r"(?P<test>[\w\s\/\-]+?)\s+(?P<result>[\d.]+)\s+(?P<unit>[a-zA-Z/%μ]+)\s+(?P<ref>[\d\-<>=. ]+)",
-        re.MULTILINE
+        r"(?P<test>[A-Z0-9 \-\/().]+?)\s+(?P<result>[\d.]+)\s+(?P<unit>[\w/%μ·]+)\s+(?P<ref>[<>]=?\s*[\d.]+(?:\s*-\s*[\d.]+)?(?:\s*[\w/%μ·]+)?)",
+        re.MULTILINE | re.IGNORECASE
     )
+
     for match in pattern.finditer(text):
         tests.append({
             "test_name": match.group("test").strip(),
-            "result": match.group("result"),
-            "unit": match.group("unit"),
-            "reference_range": match.group("ref").strip()
+            "result": match.group("result").strip(),
+            "unit": match.group("unit").strip(),
+            "reference_range": match.group("ref").strip(),
         })
 
     # Also extract known chemistry values (optional structured view)

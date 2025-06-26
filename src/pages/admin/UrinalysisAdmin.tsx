@@ -487,6 +487,27 @@ const UrinalysisAdmin: React.FC = () => {
                     </span>
                   </div>
                   <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>Location:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.location || "N/A"}
+                    </span>
+                  </div>
+
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>Order Number:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.orderNumber || "N/A"}
+                    </span>
+                  </div>
+
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>Result Validated:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.resultValidated || "N/A"}
+                    </span>
+                  </div>
+
+                  <div className={styles.infoItem}>
                     <span className={styles.infoLabel}>Unique ID:</span>
                     <span className={styles.infoValue}>
                       {selectedRecord.uniqueId}
@@ -680,7 +701,7 @@ const UrinalysisAdmin: React.FC = () => {
                     <h4 className={styles.sectionSubtitle}>📄 PDF Report</h4>
                 
                     <iframe
-                      src={`${import.meta.env.VITE_BACKEND_URL}/view-pdf/${selectedRecord.pdfUrl}`}
+                      src={selectedRecord.pdfUrl}
                       width="100%"
                       height="500px"
                       style={{
@@ -693,7 +714,7 @@ const UrinalysisAdmin: React.FC = () => {
                 
                     <div className={styles.pdfActions}>
                       <a
-                        href={`${import.meta.env.VITE_BACKEND_URL}/view-pdf/${selectedRecord.pdfUrl}`}
+                        href={selectedRecord.pdfUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         className={styles.viewPdfButton}
@@ -702,7 +723,7 @@ const UrinalysisAdmin: React.FC = () => {
                       </a>
                 
                       <a
-                        href={`${import.meta.env.VITE_BACKEND_URL}/view-pdf/${selectedRecord.pdfUrl}`}
+                        href={selectedRecord.pdfUrl}
                         download={selectedRecord.fileName}
                         className={styles.downloadPdfButton}
                       >

@@ -621,4 +621,141 @@
   .downloadPdfButton:hover {
     color: #2563eb;
   }
+
+  /* --- Medical Exam Modal Sections --- */
+  .medicalHistorySection,
+  .vitalSignsSection,
+  .labResultsSection,
+  .assessmentSection,
+  .medicalPersonnelSection {
+    margin-bottom: 2rem;
+  }
+
+/* --- Risk Assessment Section (Lipid Profile) --- */
+  .riskGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+
+  .riskItem {
+    background: #f0f9ff;
+    border: 1px solid #cbd5e1;
+    padding: 1rem;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .riskLabel {
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 0.25rem;
+    font-size: 0.95rem;
+  }
+
+  .riskValue {
+    font-size: 1.05rem;
+    font-weight: 500;
+    color: #1e3a8a;
+  }
+  .testResultsSection {
+    margin-top: 2rem;
+  }
+
+  .testResultsGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+
+  .testResultCard {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background-color: #f8fafc;
+    padding: 1rem;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  }
+
+  .testResultHeader {
+    border-bottom: 1px solid #e5e7eb;
+    padding-bottom: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .testResultName {
+    font-weight: 600;
+    color: #1e3a8a;
+    font-size: 1.05rem;
+    margin: 0;
+  }
+
+  .testResultBody {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .testResultItem {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.95rem;
+  }
+
+  .testResultLabel {
+    font-weight: 500;
+    color: #4b5563;
+  }
+
+  .testResultValue {
+    font-weight: 500;
+    color: #1e3a8a;
+    text-align: right;
+  }
+
+  .keyValuesSection {
+    margin-top: 2rem;
+    background: #f0f9ff;
+    border-radius: 12px;
+    padding: 1rem 1.5rem;
+    border: 1px solid #dbeafe;
+  }
+
+  .keyValuesGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+
+  .keyValue {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .keyLabel {
+    font-size: 0.9rem;
+    color: #4b5563;
+    font-weight: 600;
+  }
+
+  .keyResult {
+    font-size: 1.1rem;
+    color: #1e40af;
+    font-weight: 600;
+    margin-top: 4px;
+  }
+
+  .noTestResults {
+    font-style: italic;
+    color: #6b7280;
+    margin-top: 1rem;
+}
+
 }
