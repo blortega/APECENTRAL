@@ -110,7 +110,7 @@ const UrinalysisAdmin: React.FC = () => {
       formData.append("file", file);
 
       try {
-        const res = await fetch("https://apecentral.onrender.com/upload-and-store?type=urinalysis", {
+        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/upload-and-store?type=urinalysis`, {
           method: "POST",
           body: formData,
         });
@@ -680,7 +680,7 @@ const UrinalysisAdmin: React.FC = () => {
                     <h4 className={styles.sectionSubtitle}>📄 PDF Report</h4>
                 
                     <iframe
-                      src={selectedRecord.pdfUrl}
+                      src={`${import.meta.env.VITE_BACKEND_URL}/view-pdf/${selectedRecord.pdfUrl}`}
                       width="100%"
                       height="500px"
                       style={{
@@ -693,7 +693,7 @@ const UrinalysisAdmin: React.FC = () => {
                 
                     <div className={styles.pdfActions}>
                       <a
-                        href={selectedRecord.pdfUrl}
+                        href={`${import.meta.env.VITE_BACKEND_URL}/view-pdf/${selectedRecord.pdfUrl}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className={styles.viewPdfButton}
@@ -702,7 +702,7 @@ const UrinalysisAdmin: React.FC = () => {
                       </a>
                 
                       <a
-                        href={selectedRecord.pdfUrl}
+                        href={`${import.meta.env.VITE_BACKEND_URL}/view-pdf/${selectedRecord.pdfUrl}`}
                         download={selectedRecord.fileName}
                         className={styles.downloadPdfButton}
                       >
