@@ -95,7 +95,7 @@ const ChemistryAdmin: React.FC = () => {
       formData.append("file", file);
 
       try {
-        const res = await fetch("http://localhost:8000/upload-and-store?type=chem", {
+        const res = await fetch("https://apecentral.onrender.com/upload-and-store?type=chem", {
           method: "POST",
           body: formData,
         });
