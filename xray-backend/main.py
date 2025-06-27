@@ -1073,21 +1073,6 @@ def parse_medical_exam(text: str, filename: str) -> Dict:
                 # Enhanced Medical Class detection
                 def detect_medical_class():
                     try:
-                        # Look for Class A, B, C, D, E, or PENDING
-                        class_patterns = [
-                            r'Class\s*["\']?([ABCDE])["\']?\s*[-–]\s*Medically Fit',
-                            r'Class\s*["\']?([ABCDE])["\']?',
-                            r'Class\s*["\']?(PENDING)["\']?'
-                        ]
-                        
-                        for pattern in class_patterns:
-                            match = re.search(pattern, text, re.IGNORECASE)
-                            if match:
-                                class_found = match.group(1).upper()
-                                print(f"[DEBUG] Found medical class: {class_found}")
-                                return class_found
-                        
-                        # Comprehensive Medical Class Logic
                         # First check if there are treatment needs
                         needs_treatment = re.search(r"Needs\s+treatment[/\s]*correction\s+([A-Z\s,\-\.]+?)(?=Treatment\s+optional|Class|Remarks|Date|$)", text, re.IGNORECASE)
                         has_treatment_needs = needs_treatment and needs_treatment.group(1).strip() and needs_treatment.group(1).strip() != ""
@@ -1098,7 +1083,35 @@ def parse_medical_exam(text: str, filename: str) -> Dict:
                         is_unfit = re.search(r"UNFIT", text, re.IGNORECASE)
                         
                         print(f"[DEBUG] Treatment needs: {treatment_details}")
+                        print(f"[DEBUG] Has treatment needs: {has_treatment_needs}")
                         print(f"[DEBUG] Is fit: {is_fit}, Is unfit: {is_unfit}")
+                        
+                        # OVERRIDE LOGIC: If there are treatment needs and the person is fit, it's Class B
+                        if has_treatment_needs and is_fit:
+                            print(f"[DEBUG] OVERRIDE: Assigning Class B due to treatment needs: {treatment_details}")
+                            return "B"
+                        
+                        # Now look for explicit class patterns (but they can be overridden by above logic)
+                        class_patterns = [
+                            r'Class\s*["\']?([ABCDE])["\']?\s*[-–]\s*Medically Fit',
+                            r'Class\s*["\']?([ABCDE])["\']?',
+                            r'Class\s*["\']?(PENDING)["\']?'
+                        ]
+                        
+                        found_class = None
+                        for pattern in class_patterns:
+                            match = re.search(pattern, text, re.IGNORECASE)
+                            if match:
+                                found_class = match.group(1).upper()
+                                print(f"[DEBUG] Found medical class in text: {found_class}")
+                                break
+                        
+                        # If we found a class but have treatment needs, override to Class B
+                        if found_class and has_treatment_needs and found_class == "A":
+                            print(f"[DEBUG] OVERRIDE: Changing Class A to Class B due to treatment needs")
+                            return "B"
+                        elif found_class:
+                            return found_class
                         
                         # CLASS E - Unfit for employment
                         if is_unfit or re.search(r"Unfit for employment", text, re.IGNORECASE):
