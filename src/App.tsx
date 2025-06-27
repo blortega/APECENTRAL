@@ -19,6 +19,7 @@ import EcgUser from "@/pages/user/EcgUser";
 import LipidAdmin from "./pages/admin/LipidAdmin";
 import MedExamAdmin from "@/pages/admin/MedExamAdmin";
 import ChemistryAdmin from "./pages/admin/ChemistryAdmin";
+import ReportsAdmin from "./pages/admin/ReportsAdmin";
 
 interface UserData {
   email: string;
@@ -131,6 +132,18 @@ function App() {
             isLoading={isLoading}
           >
             <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/reportsadmin"
+        element={
+          <ProtectedRoute
+            isAuthenticated={isAuthenticated}
+            isLoading={isLoading}
+          >
+            <ReportsAdmin />
           </ProtectedRoute>
         }
       />

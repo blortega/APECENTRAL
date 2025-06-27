@@ -204,6 +204,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
       label: "Dashboard",
       description: "Overview & Statistics",
     },
+    {
+      path: "/reportsadmin",
+      icon: "📊",
+      label: "Reports",
+      description: "Recommendations Overview",
+    },
   ];
 
   // Role-based records sub-items
