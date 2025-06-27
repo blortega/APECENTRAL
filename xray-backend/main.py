@@ -899,14 +899,6 @@ VLDL L 13.60 mg/dL 20 - 30"""
 # Uncomment to test:
 # test_with_actual_data()
 
-import re
-from datetime import datetime
-from typing import Dict
-from fastapi import FastAPI, UploadFile, File, HTTPException
-import fitz  # PyMuPDF
-
-app = FastAPI()
-
 @app.post("/extract-medical-exam")
 async def extract_medical_exam(file: UploadFile = File(...)) -> Dict:
     try:
@@ -920,12 +912,15 @@ async def extract_medical_exam(file: UploadFile = File(...)) -> Dict:
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to extract medical exam data: {str(e)}")
 
+
 def parse_medical_exam(text: str, filename: str) -> Dict:
-    """Parse medical examination report and extract all relevant information"""
+    from datetime import datetime
+    import re
+
     print("===== RAW MEDICAL EXAM TEXT =====")
     print(text)
     print("=" * 50)
-    
+
     def extract_field(pattern, default=""):
         match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
         try:
@@ -944,238 +939,75 @@ def parse_medical_exam(text: str, filename: str) -> Dict:
         symbol = match.group(1)
         return "YES" if symbol.strip() in ["✓", "x", "X"] else "NO"
 
-    def extract_vital_signs():
-        """Extract vital signs from the formatted table"""
-        vitals = {}
-        
-        # Blood Pressure (format: 110/70)
-        bp_match = re.search(r"Blood Pressure.*?(\d+/\d+)", text, re.IGNORECASE | re.DOTALL)
-        vitals["blood_pressure"] = bp_match.group(1) if bp_match else ""
-        
-        # Pulse
-        pulse_match = re.search(r"Pulse.*?(\d+)", text, re.IGNORECASE | re.DOTALL)
-        vitals["pulse"] = pulse_match.group(1) if pulse_match else ""
-        
-        # SpO2
-        spo2_match = re.search(r"Spo02.*?(\d+)", text, re.IGNORECASE | re.DOTALL)
-        vitals["spo2"] = spo2_match.group(1) if spo2_match else ""
-        
-        # Respiratory Rate
-        resp_match = re.search(r"Res.*?(\d+)", text, re.IGNORECASE | re.DOTALL)
-        vitals["respiratory_rate"] = resp_match.group(1) if resp_match else ""
-        
-        # Temperature
-        temp_match = re.search(r"TEMP.*?([\d.]+)", text, re.IGNORECASE | re.DOTALL)
-        vitals["temperature"] = temp_match.group(1) if temp_match else ""
-        
-        return vitals
-    
-    def extract_anthropometrics():
-        """Extract height, weight, BMI, IBW"""
-        anthro = {}
-        
-        # Height
-        height_match = re.search(r"HEIGHT:.*?(\d+)", text, re.IGNORECASE)
-        anthro["height"] = height_match.group(1) if height_match else ""
-        
-        # Weight
-        weight_match = re.search(r"WEIGHT:.*?([\d.]+)", text, re.IGNORECASE)
-        anthro["weight"] = weight_match.group(1) if weight_match else ""
-        
-        # BMI
-        bmi_match = re.search(r"BMI:\s*([\d.]+)", text, re.IGNORECASE)
-        anthro["bmi"] = bmi_match.group(1) if bmi_match else ""
-        
-        # IBW (Ideal Body Weight)
-        ibw_match = re.search(r"IBW:.*?([\d.]+)", text, re.IGNORECASE)
-        anthro["ibw"] = ibw_match.group(1) if ibw_match else ""
-        
-        return anthro
-    
-    def extract_visual_acuity():
-        """Extract visual acuity information"""
-        visual = {}
-        
-        # Vision adequacy
-        adequate_match = re.search(r"ADEQUATE:\s*([A-Z]+)", text, re.IGNORECASE)
-        visual["vision_adequacy"] = adequate_match.group(1) if adequate_match else ""
-        
-        # Extract OD/OS values if present
-        od_match = re.search(r"OD=([J\d]+)", text)
-        visual["od"] = od_match.group(1) if od_match else ""
-        
-        os_match = re.search(r"OS=([J\d]+)", text)
-        visual["os"] = os_match.group(1) if os_match else ""
-        
-        return visual
-    
-    def extract_lab_findings():
-        """Extract laboratory findings"""
-        labs = {}
-        
-        # CBC
-        cbc_match = re.search(r"Complete Blood Count\s+(Unremarkable|[A-Za-z\s]+)", text, re.IGNORECASE)
-        labs["cbc"] = cbc_match.group(1) if cbc_match else ""
-        
-        # Urinalysis
-        urine_match = re.search(r"Urinalys\s+(Unremarkable|[A-Za-z\s]+)", text, re.IGNORECASE)
-        labs["urinalysis"] = urine_match.group(1) if urine_match else ""
-        
-        # Blood Chemistry
-        chem_match = re.search(r"Blood Chemistry\s+(Unremarkable|[A-Za-z\s]+)", text, re.IGNORECASE)
-        labs["blood_chemistry"] = chem_match.group(1) if chem_match else ""
-        
-        # Chest X-ray
-        xray_match = re.search(r"Chest X-ray\s+([A-Za-z\s]+?)(?=PA LORDOTIC|ECG|\n)", text, re.IGNORECASE)
-        labs["chest_xray"] = xray_match.group(1).strip() if xray_match else ""
-        
-        # ECG
-        ecg_match = re.search(r"ECG\s+(Unremarkable|[A-Za-z\s]+)", text, re.IGNORECASE)
-        labs["ecg"] = ecg_match.group(1) if ecg_match else ""
-        
-        return labs
-    
-    def extract_medical_classification():
-        """Extract medical fitness classification and recommendations with improved accuracy"""
-        classification = {}
-        
-        # Enhanced fitness status extraction
-        # Look for checked boxes or explicit FIT/UNFIT statements
-        fit_patterns = [
-            r"RECOMMENDATIONS:\s*([✓xX])\s*FIT\s*([✓xX]?)\s*UNFIT",  # Checkbox format
-            r"RECOMMENDATIONS:\s*FIT\s*([✓xX])\s*UNFIT",  # Simple checkbox
-            r"RECOMMENDATIONS:\s*(FIT|UNFIT)(?!\s*[✓xX])",  # Direct text
-            r"([✓xX])\s*FIT\s*([✓xX]?)\s*UNFIT",  # Checkbox only
-        ]
-        
-        fitness_status = ""
-        for pattern in fit_patterns:
-            match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
-            if match:
-                if len(match.groups()) >= 2:
-                    # Checkbox format - check which box is marked
-                    fit_check = match.group(1).strip() if match.group(1) else ""
-                    unfit_check = match.group(2).strip() if match.group(2) else ""
-                    
-                    if fit_check in ["✓", "x", "X"] and unfit_check not in ["✓", "x", "X"]:
-                        fitness_status = "FIT"
-                    elif unfit_check in ["✓", "x", "X"] and fit_check not in ["✓", "x", "X"]:
-                        fitness_status = "UNFIT"
-                    elif fit_check in ["✓", "x", "X"] and not unfit_check:
-                        fitness_status = "FIT"
-                else:
-                    # Direct text format
-                    fitness_status = match.group(1).upper()
-                break
-        
-        classification["fitness_status"] = fitness_status
-        
-        # Enhanced medical class extraction
-        # Look for checked boxes next to each class
-        classes = ["A", "B", "C", "D", "E", "PENDING"]
-        medical_class = ""
-        
-        for cls in classes:
-            # Multiple patterns to catch different checkbox formats
-            class_patterns = [
-                rf'([✓xX])\s*Class\s*["""]?{cls}["""]?',  # Checkbox before class
-                rf'Class\s*["""]?{cls}["""]?\s*([✓xX])',  # Checkbox after class
-                rf'([✓xX])\s*["""]?{cls}["""]?\s*-',  # Checkbox with dash
-                rf'Class\s*["""]?{cls}["""]?\s*-[^✓xX]*([✓xX])',  # Checkbox after description
-            ]
-            
-            for pattern in class_patterns:
-                match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
-                if match:
-                    checkbox = match.group(1).strip()
-                    if checkbox in ["✓", "x", "X"]:
-                        medical_class = cls
-                        break
-            
-            if medical_class:
-                break
-        
-        # Fallback: If no checkbox found, look for explicit class statements
-        if not medical_class:
-            fallback_patterns = [
-                r'Class\s*["""]([ABCDE]|PENDING)["""]?\s*-\s*[A-Za-z\s]+(?=\s*Class\s*["""]|$)',
-                r'Recommended\s*Class:\s*([ABCDE]|PENDING)',
-                r'Medical\s*Class:\s*([ABCDE]|PENDING)',
-            ]
-            
-            for pattern in fallback_patterns:
-                match = re.search(pattern, text, re.IGNORECASE)
-                if match:
-                    medical_class = match.group(1)
-                    break
-        
-        classification["medical_class"] = medical_class
-        
-        # Enhanced treatment needs extraction
-        treatment_patterns = [
-            r"Needs\s+treatment/?\s*correction\s+([A-Z\s,\-]+?)(?=Treatment\s+optional|Remarks|Date|$)",
-            r"Needs\s+treatment\s+([A-Z\s,\-]+?)(?=Treatment\s+optional|Remarks|Date|$)",
-            r"correction\s+([A-Z\s,\-]+?)(?=Treatment\s+optional|Remarks|Date|$)",
-        ]
-        
-        needs_treatment = ""
-        for pattern in treatment_patterns:
-            match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE | re.DOTALL)
-            if match:
-                needs_treatment = match.group(1).strip()
-                # Clean up common OCR artifacts
-                needs_treatment = re.sub(r'\s+', ' ', needs_treatment)
-                needs_treatment = needs_treatment.replace('\n', ' ').strip()
-                break
-        
-        classification["needs_treatment"] = needs_treatment
-        
-        # Enhanced remarks extraction
-        remarks_patterns = [
-            r"Remarks:\s+([a-zA-Z\s,\-\.]+?)(?=Date\s+of\s+Initial|This\s+is\s+to\s+certify|$)",
-            r"Remarks:\s*([^\n]+)",
-        ]
-        
-        remarks = ""
-        for pattern in remarks_patterns:
-            match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
-            if match:
-                remarks = match.group(1).strip()
-                break
-        
-        classification["remarks"] = remarks
-        
-        # Debug output
-        print(f"[CLASSIFICATION DEBUG] Fitness: {fitness_status}, Class: {medical_class}")
-        print(f"[CLASSIFICATION DEBUG] Treatment: {needs_treatment}")
-        print(f"[CLASSIFICATION DEBUG] Remarks: {remarks}")
-        
-        return classification
-
     def detect_checkbox_status(text_section, keywords):
-        """
-        Detect if a checkbox is marked in a text section containing specific keywords
-        Returns: 'CHECKED', 'UNCHECKED', or 'NOT_FOUND'
-        """
         for keyword in keywords:
-            # Look for checkbox symbols near the keyword
             pattern = rf"([✓xX\s])\s*{re.escape(keyword)}|{re.escape(keyword)}\s*([✓xX\s])"
             match = re.search(pattern, text_section, re.IGNORECASE)
             if match:
                 checkbox = (match.group(1) or match.group(2) or "").strip()
                 if checkbox in ["✓", "x", "X"]:
-                    return 'CHECKED'
-                elif checkbox == "":
-                    return 'UNCHECKED'
-        
-        return 'NOT_FOUND'
-    
-    # Extract all data
+                    return keyword.upper()
+        return "NOT_FOUND"
+
+    def extract_vital_signs():
+        return {
+            "blood_pressure": re.search(r"Blood Pressure.*?(\d+/\d+)", text, re.IGNORECASE | re.DOTALL).group(1) if re.search(r"Blood Pressure.*?(\d+/\d+)", text, re.IGNORECASE | re.DOTALL) else "",
+            "pulse": re.search(r"Pulse.*?(\d+)", text, re.IGNORECASE | re.DOTALL).group(1) if re.search(r"Pulse.*?(\d+)", text, re.IGNORECASE | re.DOTALL) else "",
+            "spo2": re.search(r"Spo02.*?(\d+)", text, re.IGNORECASE | re.DOTALL).group(1) if re.search(r"Spo02.*?(\d+)", text, re.IGNORECASE | re.DOTALL) else "",
+            "respiratory_rate": re.search(r"Res.*?(\d+)", text, re.IGNORECASE | re.DOTALL).group(1) if re.search(r"Res.*?(\d+)", text, re.IGNORECASE | re.DOTALL) else "",
+            "temperature": re.search(r"TEMP.*?([\d.]+)", text, re.IGNORECASE | re.DOTALL).group(1) if re.search(r"TEMP.*?([\d.]+)", text, re.IGNORECASE | re.DOTALL) else "",
+        }
+
+    def extract_anthropometrics():
+        return {
+            "height": re.search(r"HEIGHT:.*?(\d+)", text, re.IGNORECASE).group(1) if re.search(r"HEIGHT:.*?(\d+)", text, re.IGNORECASE) else "",
+            "weight": re.search(r"WEIGHT:.*?([\d.]+)", text, re.IGNORECASE).group(1) if re.search(r"WEIGHT:.*?([\d.]+)", text, re.IGNORECASE) else "",
+            "bmi": re.search(r"BMI:\s*([\d.]+)", text, re.IGNORECASE).group(1) if re.search(r"BMI:\s*([\d.]+)", text, re.IGNORECASE) else "",
+            "ibw": re.search(r"IBW:.*?([\d.]+)", text, re.IGNORECASE).group(1) if re.search(r"IBW:.*?([\d.]+)", text, re.IGNORECASE) else "",
+        }
+
+    def extract_visual_acuity():
+        return {
+            "vision_adequacy": re.search(r"ADEQUATE:\s*([A-Z]+)", text, re.IGNORECASE).group(1) if re.search(r"ADEQUATE:\s*([A-Z]+)", text, re.IGNORECASE) else "",
+            "od": re.search(r"OD=([J\d]+)", text).group(1) if re.search(r"OD=([J\d]+)", text) else "",
+            "os": re.search(r"OS=([J\d]+)", text).group(1) if re.search(r"OS=([J\d]+)", text) else "",
+        }
+
+    def extract_lab_findings():
+        return {
+            "cbc": re.search(r"Complete Blood Count\s+(Unremarkable|[A-Za-z\s]+)", text, re.IGNORECASE).group(1).strip() if re.search(r"Complete Blood Count\s+(Unremarkable|[A-Za-z\s]+)", text, re.IGNORECASE) else "",
+            "urinalysis": re.search(r"Urinalys\s+(Unremarkable|[A-Za-z\s]+)", text, re.IGNORECASE).group(1).strip() if re.search(r"Urinalys\s+(Unremarkable|[A-Za-z\s]+)", text, re.IGNORECASE) else "",
+            "blood_chemistry": re.search(r"Blood Chemistry\s+(Unremarkable|[A-Za-z\s]+)", text, re.IGNORECASE).group(1).strip() if re.search(r"Blood Chemistry\s+(Unremarkable|[A-Za-z\s]+)", text, re.IGNORECASE) else "",
+            "chest_xray": re.search(r"Chest X-ray\s+([A-Za-z\s]+?)(?=PA LORDOTIC|ECG|\n)", text, re.IGNORECASE).group(1).strip() if re.search(r"Chest X-ray\s+([A-Za-z\s]+?)(?=PA LORDOTIC|ECG|\n)", text, re.IGNORECASE) else "",
+            "ecg": re.search(r"ECG\s+(Unremarkable|[A-Za-z\s]+)", text, re.IGNORECASE).group(1).strip() if re.search(r"ECG\s+(Unremarkable|[A-Za-z\s]+)", text, re.IGNORECASE) else "",
+        }
+
+    def extract_medical_classification():
+        classification = {}
+
+        # Detect FIT / UNFIT using checkboxes
+        fit_section = re.search(r"RECOMMENDATIONS:(.*?)\n", text, re.IGNORECASE | re.DOTALL)
+        classification["fitness_status"] = detect_checkbox_status(fit_section.group(1), ["FIT", "UNFIT"]) if fit_section else ""
+
+        # Detect Medical Class using checkboxes
+        class_section = re.search(r"Class\s*([A-E]|PENDING)[\s\S]{0,50}", text, re.IGNORECASE)
+        classification["medical_class"] = detect_checkbox_status(class_section.group(0), ["A", "B", "C", "D", "E", "PENDING"]) if class_section else ""
+
+        # Extract needs treatment
+        treatment = re.search(r"Needs\s+treatment/?\s*correction\s+([A-Z\s,\-]+?)(?=Treatment\s+optional|Remarks|Date|$)", text, re.IGNORECASE)
+        classification["needs_treatment"] = treatment.group(1).strip() if treatment else ""
+
+        # Extract remarks
+        remarks = re.search(r"Remarks:\s+([a-zA-Z\s,\-\.]+?)(?=Date\s+of\s+Initial|This\s+is\s+to\s+certify|$)", text, re.IGNORECASE)
+        classification["remarks"] = remarks.group(1).strip() if remarks else ""
+
+        return classification
+
     vitals = extract_vital_signs()
     anthro = extract_anthropometrics()
     visual = extract_visual_acuity()
     labs = extract_lab_findings()
-    classification = extract_medical_classification()  # Using the improved function
+    classification = extract_medical_classification()
 
     yes_no_conditions = {
         "head_or_neck_injury": extract_yes_no_condition("Head or Neck Injury"),
@@ -1193,9 +1025,8 @@ def parse_medical_exam(text: str, filename: str) -> Dict:
         "kidney_disease": extract_yes_no_condition("Kidney Disease"),
         "others": extract_yes_no_condition("Others")
     }
-    
+
     return {
-        # Basic Patient Information
         "patient_name": extract_field(r"PATIENT NAME:\s*([A-Z\s]+)\s+PID:"),
         "pid": extract_field(r"PID:\s*(\d+)"),
         "date_of_birth": extract_field(r"DATE OF BIRTH:\s*([\d/]+)"),
@@ -1205,67 +1036,39 @@ def parse_medical_exam(text: str, filename: str) -> Dict:
         "civil_status": extract_field(r"CIVIL STATUS:\s*([A-Z]+)"),
         "company": extract_field(r"COMPANY:\s*([A-Z\s]+)\s+OCCUPATION:"),
         "occupation": extract_field(r"OCCUPATION:\s*([A-Z\s]*)", ""),
-        
-        # Medical History
+
         "present_illness": extract_field(r"PRESENT ILLNESS:\s*([A-Z\s]*)\s+ALLERGY:"),
         "food_allergy": extract_field(r"Food:\s*([A-Z]+)"),
         "medication_allergy": extract_field(r"Medication:\s*([A-Z]+)"),
         "past_consultation": extract_field(r"If YES, specify:\s*([A-Z\d\s-]+)"),
         "maintenance_medications": extract_field(r"If YES, specify:\s*([A-Z\s\d]+)"),
         "previous_hospitalizations": extract_field(r"Previous Hospitalizations:\s*([A-Z\s,\d-]+)"),
-        
-        # Obstetrical History (for females)
+
         "menstrual_history_lmp": extract_field(r"LMP\s*:\s*([A-Z\s\d]+)"),
         "obstetrical_history": extract_field(r"OBSTETRICAL HISTORY:\s*([A-Z\d\s()]+)"),
-        
-        # Vital Signs
-        "blood_pressure": vitals.get("blood_pressure", ""),
-        "pulse": vitals.get("pulse", ""),
-        "spo2": vitals.get("spo2", ""),
-        "respiratory_rate": vitals.get("respiratory_rate", ""),
-        "temperature": vitals.get("temperature", ""),
-        
-        # Anthropometrics
-        "height": anthro.get("height", ""),
-        "weight": anthro.get("weight", ""),
-        "bmi": anthro.get("bmi", ""),
-        "ibw": anthro.get("ibw", ""),
-        
-        # Visual Acuity
-        "vision_adequacy": visual.get("vision_adequacy", ""),
-        "vision_od": visual.get("od", ""),
-        "vision_os": visual.get("os", ""),
-        
-        # Laboratory Findings
-        "cbc_result": labs.get("cbc", ""),
-        "urinalysis_result": labs.get("urinalysis", ""),
-        "blood_chemistry_result": labs.get("blood_chemistry", ""),
-        "chest_xray_result": labs.get("chest_xray", ""),
-        "ecg_result": labs.get("ecg", ""),
-        
-        # Medical Classification - Using improved extraction
-        "fitness_status": classification.get("fitness_status", ""),
-        "medical_class": classification.get("medical_class", ""),
-        "needs_treatment": classification.get("needs_treatment", ""),
-        "remarks": classification.get("remarks", ""),
-        
-        # Medical Personnel
+
+        **vitals,
+        **anthro,
+        **visual,
+        **labs,
+        **classification,
+
         "examining_physician": extract_field(r"KRIZIA KATE LANUTAN LIAO\s+([A-Z\s]+)\s+DR\."),
         "evaluating_personnel": extract_field(r"DR\.\s+([A-Z\s-]+)"),
         "physician_prc": extract_field(r"PRC#:\s*(\d+)"),
-        
-        # Dates
+
         "date_of_initial_peme": extract_field(r"Date of Initial PEME:\s*([\d/]+)"),
         "date_of_fitness": extract_field(r"Date of Fitness:\s*([\d/]*)"),
         "valid_until": extract_field(r"Valid Until:\s*([\d/]*)"),
-        
-        # Meta
+
         "fileName": filename,
         "uploadDate": datetime.utcnow().isoformat(),
         "uniqueId": filename.replace(".pdf", ""),
 
         **yes_no_conditions
     }
+
+
 
 @app.post("/extract-chem")
 async def extract_chem(file: UploadFile = File(...)) -> Dict:
