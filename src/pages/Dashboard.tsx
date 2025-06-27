@@ -655,6 +655,7 @@ const Dashboard: React.FC = () => {
                   </span>
                 </div>
               </button>
+
               <button
                 className={`${styles.quickAction} ${styles.secondary}`}
                 onClick={() => navigate("/xrayadmin")}
@@ -669,12 +670,13 @@ const Dashboard: React.FC = () => {
                   </span>
                 </div>
               </button>
+
               <button
                 className={`${styles.quickAction} ${styles.accent}`}
                 onClick={() => navigate("/ecgadmin")}
               >
                 <div className={styles.actionIconWrapper}>
-                  <span className={styles.actionIcon}>💓</span>
+                  <span className={styles.actionIcon}>🫀</span>
                 </div>
                 <div className={styles.actionContent}>
                   <span className={styles.actionText}>Upload ECG</span>
@@ -683,6 +685,24 @@ const Dashboard: React.FC = () => {
                   </span>
                 </div>
               </button>
+
+              <button
+                className={`${styles.quickAction} ${styles.info}`}
+                onClick={() => navigate("/chemadmin")}
+              >
+                <div className={styles.actionIconWrapper}>
+                  <span className={styles.actionIcon}>🧪</span>
+                </div>
+                <div className={styles.actionContent}>
+                  <span className={styles.actionText}>
+                    Upload Chemistry Panel
+                  </span>
+                  <span className={styles.actionSubtext}>
+                    Process lab results
+                  </span>
+                </div>
+              </button>
+
               <button
                 className={`${styles.quickAction} ${styles.info}`}
                 onClick={() => navigate("/urinalysisadmin")}
@@ -693,7 +713,39 @@ const Dashboard: React.FC = () => {
                 <div className={styles.actionContent}>
                   <span className={styles.actionText}>Upload Urinalysis</span>
                   <span className={styles.actionSubtext}>
-                    Find patient data
+                    Analyze urine samples
+                  </span>
+                </div>
+              </button>
+
+              <button
+                className={`${styles.quickAction} ${styles.info}`}
+                onClick={() => navigate("/lipidadmin")}
+              >
+                <div className={styles.actionIconWrapper}>
+                  <span className={styles.actionIcon}>💊</span>
+                </div>
+                <div className={styles.actionContent}>
+                  <span className={styles.actionText}>
+                    Upload Lipid Profile
+                  </span>
+                  <span className={styles.actionSubtext}>
+                    Track cholesterol levels
+                  </span>
+                </div>
+              </button>
+
+              <button
+                className={`${styles.quickAction} ${styles.info}`}
+                onClick={() => navigate("/medexamadmin")}
+              >
+                <div className={styles.actionIconWrapper}>
+                  <span className={styles.actionIcon}>🩺</span>
+                </div>
+                <div className={styles.actionContent}>
+                  <span className={styles.actionText}>Upload Medical Exam</span>
+                  <span className={styles.actionSubtext}>
+                    Record examination results
                   </span>
                 </div>
               </button>
