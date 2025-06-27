@@ -241,7 +241,7 @@ const Register: React.FC = () => {
         gender: formData.gender,
         birthdate: formData.birthdate,
         createdAt: serverTimestamp(),
-        role: "Employee", // Default role - only Admin can change this later
+        role: "Admin", // Default role - only Admin can change this later
       });
 
       alert("Registration successful! Please sign in with your new account.");
