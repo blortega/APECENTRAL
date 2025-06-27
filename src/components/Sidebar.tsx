@@ -204,12 +204,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
       label: "Dashboard",
       description: "Overview & Statistics",
     },
-    {
-      path: "/reports",
-      icon: "📈",
-      label: "Reports",
-      description: "Health Trends & Analysis",
-    },
   ];
 
   // Role-based records sub-items
@@ -218,43 +212,43 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
       return [
         {
           path: "/cbcadmin",
-          icon: "🩸",
+          icon: "🩸", // Keep this one - it's perfect for blood work
           label: "CBC Admin",
           description: "Complete Blood Count Management",
         },
         {
           path: "/xrayadmin",
-          icon: "🩻",
+          icon: "🩻", // Keep this one - it's perfect for X-rays
           label: "X-Ray Admin",
           description: "Radiographic Images Management",
         },
         {
           path: "/ecgadmin",
-          icon: "💓",
+          icon: "🫀", // Better heart icon for ECG
           label: "ECG Admin",
           description: "Electrocardiogram Management",
         },
         {
           path: "/chemadmin",
-          icon: "💓",
+          icon: "🧪", // Test tube for chemistry tests
           label: "Chemistry Admin",
           description: "Chemistry Result Management",
         },
         {
           path: "/urinalysisadmin",
-          icon: "🔬",
+          icon: "🔬", // Keep microscope for urinalysis
           label: "Urinalysis Admin",
           description: "Clinical Microscopy Management",
         },
         {
           path: "/lipidadmin",
-          icon: "🔬",
+          icon: "💊", // Pill icon for lipid profile
           label: "Lipid Admin",
           description: "Lipid Profile Management",
         },
         {
           path: "/medexamadmin",
-          icon: "🔬",
+          icon: "🩺", // Stethoscope for medical exams
           label: "Medical Exam Admin",
           description: "Medical Exam Management",
         },
@@ -263,25 +257,25 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
       return [
         {
           path: "/cbcuser",
-          icon: "🩸",
+          icon: "🩸", // Keep blood drop for CBC
           label: "CBC",
           description: "Complete Blood Count",
         },
         {
           path: "/xrayuser",
-          icon: "🩻",
+          icon: "🩻", // Keep X-ray icon
           label: "X-Ray",
           description: "Radiographic Images",
         },
         {
           path: "/ecguser",
-          icon: "💓",
+          icon: "🫀", // Better heart icon for ECG
           label: "ECG",
           description: "Electrocardiogram",
         },
         {
           path: "/urinalysisuser",
-          icon: "🔬",
+          icon: "🔬", // Keep microscope for urinalysis
           label: "Urinalysis",
           description: "Clinical Microscopy",
         },
@@ -414,27 +408,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onToggle }) => {
                   }`}
                 >
                   <ul className={styles.submenuList}>
-                    <li className={styles.submenuItem}>
-                      <Link
-                        to="/records"
-                        className={`${styles.submenuLink} ${
-                          isActive("/records") ? styles.active : ""
-                        }`}
-                        onClick={() => setIsRecordsDropdownOpen(false)}
-                      >
-                        <span className={styles.submenuIcon}>📋</span>
-                        <div className={styles.submenuContent}>
-                          <span className={styles.submenuLabel}>
-                            All Records
-                          </span>
-                          <span className={styles.submenuDescription}>
-                            {userData?.role === "Admin"
-                              ? "Manage All Medical Records"
-                              : "View All Medical Records"}
-                          </span>
-                        </div>
-                      </Link>
-                    </li>
                     {recordsSubItems.map((item) => (
                       <li key={item.path} className={styles.submenuItem}>
                         <Link

@@ -16,15 +16,22 @@ import useGenerateActivity from "@/hooks/useGenerateActivity";
 interface MedExamRecord {
   id?: string;
   uniqueId: string;
+  fileName: string;
+  uploadDate: string;
+  pdfUrl: string;
+
+  // Patient Info
   patient_name: string;
   pid: string;
   date_of_birth: string;
   age: number;
   sex: string;
+  civil_status: string;
   company: string;
   occupation: string;
   date_of_examination: string;
-  civil_status: string;
+
+  // Medical History
   present_illness: string;
   food_allergy: string;
   medication_allergy: string;
@@ -33,37 +40,65 @@ interface MedExamRecord {
   previous_hospitalizations: string;
   menstrual_history_lmp: string;
   obstetrical_history: string;
+
+  // Vitals
   blood_pressure: string;
   pulse: string;
   spo2: string;
   respiratory_rate: string;
   temperature: string;
+
+  // Anthropometrics
   height: string;
   weight: string;
   bmi: string;
   ibw: string;
+
+  // Vision
   vision_adequacy: string;
   vision_od: string;
   vision_os: string;
+
+  // Laboratory Results
   cbc_result: string;
   urinalysis_result: string;
   blood_chemistry_result: string;
   chest_xray_result: string;
   ecg_result: string;
+
+  // Medical Classification
   fitness_status: string;
   medical_class: string;
   needs_treatment: string;
   remarks: string;
+
+  // Medical Personnel
   examining_physician: string;
   evaluating_personnel: string;
   physician_prc: string;
+
+  // Dates
   date_of_initial_peme: string;
   date_of_fitness: string;
   valid_until: string;
-  fileName: string;
-  uploadDate: string;
-  pdfUrl: string;
+
+  // Clinical History (Yes/No)
+  head_or_neck_injury: string;
+  frequent_dizziness: string;
+  fainting_spells: string;
+  chronic_cough: string;
+  heart_disease: string;
+  hypertension: string;
+  diabetes: string;
+  asthma: string;
+  epilepsy: string;
+  mental_disorder: string;
+  tuberculosis: string;
+  cancer: string;
+  kidney_disease: string;
+  others: string;
 }
+
 
 const MedExamAdmin: React.FC = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -77,6 +112,7 @@ const MedExamAdmin: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  
   // Initialize the activity hook
   const {
     generateActivity,
@@ -117,7 +153,7 @@ const MedExamAdmin: React.FC = () => {
       formData.append("file", file);
 
       try {
-        const res = await fetch("https://apecentral.onrender.com/upload-and-store?type=medical", {
+        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/upload-and-store?type=medical`, {
           method: "POST",
           body: formData,
         });
@@ -600,6 +636,24 @@ const MedExamAdmin: React.FC = () => {
                 </div>
               </div>
 
+              <div className={styles.visionSection}>
+  <h4 className={styles.sectionSubtitle}>Vision Assessment</h4>
+  <div className={styles.infoGrid}>
+    <div className={styles.infoItem}>
+      <span className={styles.infoLabel}>Vision Adequacy:</span>
+      <span className={styles.infoValue}>{selectedRecord.vision_adequacy}</span>
+    </div>
+    <div className={styles.infoItem}>
+      <span className={styles.infoLabel}>OD:</span>
+      <span className={styles.infoValue}>{selectedRecord.vision_od}</span>
+    </div>
+    <div className={styles.infoItem}>
+      <span className={styles.infoLabel}>OS:</span>
+      <span className={styles.infoValue}>{selectedRecord.vision_os}</span>
+    </div>
+  </div>
+</div>
+
               <div className={styles.medicalHistorySection}>
                 <h4 className={styles.sectionSubtitle}>Medical History</h4>
                 <div className={styles.infoItem}>
@@ -635,6 +689,30 @@ const MedExamAdmin: React.FC = () => {
                   <span className={styles.infoValue}>
                     {selectedRecord.previous_hospitalizations || "None"}
                   </span>
+                </div>
+                <h4 className={styles.sectionSubtitle}>Clinical History (Yes / No)</h4>
+                <div className={styles.infoGrid}>
+                    {[
+                    ["Head or Neck Injury", selectedRecord.head_or_neck_injury],
+                    ["Frequent Dizziness", selectedRecord.frequent_dizziness],
+                    ["Fainting Spells", selectedRecord.fainting_spells],
+                    ["Chronic Cough", selectedRecord.chronic_cough],
+                    ["Heart Disease / Chest Pain", selectedRecord.heart_disease],
+                    ["Hypertension", selectedRecord.hypertension],
+                    ["Diabetes", selectedRecord.diabetes],
+                    ["Asthma", selectedRecord.asthma],
+                    ["Epilepsy", selectedRecord.epilepsy],
+                    ["Mental Disorder", selectedRecord.mental_disorder],
+                    ["Tuberculosis", selectedRecord.tuberculosis],
+                    ["Cancer", selectedRecord.cancer],
+                    ["Kidney Disease", selectedRecord.kidney_disease],
+                    ["Others", selectedRecord.others],
+                  ].map(([label, value]) => (
+                    <div className={styles.infoItem} key={label}>
+                      <span className={styles.infoLabel}>{label}:</span>
+                      <span className={styles.infoValue}>{value}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -735,42 +813,50 @@ const MedExamAdmin: React.FC = () => {
                       {selectedRecord.physician_prc}
                     </span>
                   </div>
-                  {selectedRecord?.pdfUrl && (
-  <div className={styles.pdfSection}>
-    <h4 className={styles.sectionSubtitle}>📄 PDF Report</h4>
+                  {selectedRecord?.pdfUrl && (() => {
+  const baseUrl = import.meta.env.VITE_BACKEND_URL;
+  const isFullUrl = selectedRecord.pdfUrl.startsWith("http");
+  const pdfPath = isFullUrl
+    ? selectedRecord.pdfUrl
+    : `${baseUrl}/view-pdf/${selectedRecord.pdfUrl}`;
 
-    <iframe
-      src={selectedRecord.pdfUrl}
-      width="100%"
-      height="500px"
-      style={{
-        border: "1px solid #ccc",
-        marginTop: "10px",
-        borderRadius: "8px",
-      }}
-      title="PDF Preview"
-    />
+  return (
+    <div className={styles.pdfSection}>
+      <h4 className={styles.sectionSubtitle}>📄 PDF Report</h4>
 
-    <div className={styles.pdfActions}>
-      <a
-        href={selectedRecord.pdfUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={styles.viewPdfButton}
-      >
-        🔗 View in New Tab
-      </a>
+      <iframe
+        src={pdfPath}
+        width="100%"
+        height="500px"
+        style={{
+          border: "1px solid #ccc",
+          marginTop: "10px",
+          borderRadius: "8px",
+        }}
+        title="PDF Preview"
+      />
 
-      <a
-        href={selectedRecord.pdfUrl}
-        download={selectedRecord.fileName}
-        className={styles.downloadPdfButton}
-      >
-        ⬇️ Download PDF
-      </a>
+      <div className={styles.pdfActions}>
+        <a
+          href={pdfPath}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={styles.viewPdfButton}
+        >
+          🔗 View in New Tab
+        </a>
+
+        <a
+          href={pdfPath}
+          download={selectedRecord.fileName}
+          className={styles.downloadPdfButton}
+        >
+          ⬇️ Download PDF
+        </a>
+      </div>
     </div>
-  </div>
-)}
+  );
+})()}
                 </div>
               </div>
             </div>

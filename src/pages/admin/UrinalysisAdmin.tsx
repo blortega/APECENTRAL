@@ -110,7 +110,7 @@ const UrinalysisAdmin: React.FC = () => {
       formData.append("file", file);
 
       try {
-        const res = await fetch("https://apecentral.onrender.com/upload-and-store?type=urinalysis", {
+        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/upload-and-store?type=urinalysis`, {
           method: "POST",
           body: formData,
         });
@@ -487,6 +487,27 @@ const UrinalysisAdmin: React.FC = () => {
                     </span>
                   </div>
                   <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>Location:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.location || "N/A"}
+                    </span>
+                  </div>
+
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>Order Number:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.orderNumber || "N/A"}
+                    </span>
+                  </div>
+
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoLabel}>Result Validated:</span>
+                    <span className={styles.infoValue}>
+                      {selectedRecord.resultValidated || "N/A"}
+                    </span>
+                  </div>
+
+                  <div className={styles.infoItem}>
                     <span className={styles.infoLabel}>Unique ID:</span>
                     <span className={styles.infoValue}>
                       {selectedRecord.uniqueId}
@@ -675,42 +696,50 @@ const UrinalysisAdmin: React.FC = () => {
                     {selectedRecord.remarks?.reference_range || "N/A"})
                   </span>
                 </div>
-                {selectedRecord?.pdfUrl && (
-                  <div className={styles.pdfSection}>
-                    <h4 className={styles.sectionSubtitle}>📄 PDF Report</h4>
-                
-                    <iframe
-                      src={selectedRecord.pdfUrl}
-                      width="100%"
-                      height="500px"
-                      style={{
-                        border: "1px solid #ccc",
-                        marginTop: "10px",
-                        borderRadius: "8px",
-                      }}
-                      title="PDF Preview"
-                    />
-                
-                    <div className={styles.pdfActions}>
-                      <a
-                        href={selectedRecord.pdfUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={styles.viewPdfButton}
-                      >
-                        🔗 View in New Tab
-                      </a>
-                
-                      <a
-                        href={selectedRecord.pdfUrl}
-                        download={selectedRecord.fileName}
-                        className={styles.downloadPdfButton}
-                      >
-                        ⬇️ Download PDF
-                      </a>
-                    </div>
-                  </div>
-                )}
+                {selectedRecord?.pdfUrl && (() => {
+                  const baseUrl = import.meta.env.VITE_BACKEND_URL;
+                  const isFullUrl = selectedRecord.pdfUrl.startsWith("http");
+                  const pdfPath = isFullUrl
+                    ? selectedRecord.pdfUrl
+                    : `${baseUrl}/view-pdf/${selectedRecord.pdfUrl}`;
+
+  return (
+    <div className={styles.pdfSection}>
+      <h4 className={styles.sectionSubtitle}>📄 PDF Report</h4>
+
+      <iframe
+        src={pdfPath}
+        width="100%"
+        height="500px"
+        style={{
+          border: "1px solid #ccc",
+          marginTop: "10px",
+          borderRadius: "8px",
+        }}
+        title="PDF Preview"
+      />
+
+      <div className={styles.pdfActions}>
+        <a
+          href={pdfPath}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={styles.viewPdfButton}
+        >
+          🔗 View in New Tab
+        </a>
+
+        <a
+          href={pdfPath}
+          download={selectedRecord.fileName}
+          className={styles.downloadPdfButton}
+        >
+          ⬇️ Download PDF
+        </a>
+      </div>
+    </div>
+  );
+})()}
               </div>
             </div>
           </div>
