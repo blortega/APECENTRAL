@@ -249,21 +249,6 @@ const CbcAdmin: React.FC = () => {
     }
   };
 
-  // Handle export functionality (you can implement this based on your needs)
-  const handleExportData = async () => {
-    try {
-      // Add your export logic here
-      console.log("Exporting CBC data...");
-
-      // Log export activity
-      await generateActivity(
-        "cbc_export",
-        `Exported CBC data (${filteredRecords.length} records)`
-      );
-    } catch (activityErr) {
-      console.error("Failed to log export activity:", activityErr);
-    }
-  };
 
   // Filter records based on search
   const filteredRecords = records.filter(
@@ -367,15 +352,6 @@ const CbcAdmin: React.FC = () => {
                   disabled={loading || activityLoading}
                 >
                   {loading ? "Loading..." : "Refresh"}
-                </button>
-                <button
-                  onClick={handleExportData}
-                  className={styles.exportButton}
-                  disabled={
-                    loading || activityLoading || filteredRecords.length === 0
-                  }
-                >
-                  Export Data
                 </button>
               </div>
             </div>

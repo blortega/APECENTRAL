@@ -125,6 +125,24 @@ const Register: React.FC = () => {
           alert("Please enter your birthdate");
           return false;
         }
+        const birthDate = new Date(formData.birthdate);
+        const today = new Date();
+        const age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+        const dayDiff = today.getDate() - birthDate.getDate();
+
+        const isAtLeast18 =
+          age > 18 ||
+          (age === 18 && (monthDiff > 0 || (monthDiff === 0 && dayDiff >= 0)));
+
+        if (birthDate > today) {
+          alert("Birthdate cannot be in the future.");
+          return false;
+        }
+        if (!isAtLeast18) {
+          alert("You must be at least 18 years old to register.");
+          return false;
+        }
         return true;
 
       case 3:
@@ -613,16 +631,16 @@ const Register: React.FC = () => {
               </p>
               <div className={styles.features}>
                 <div className={styles.feature}>
-                  <div className={styles.featureIcon}>🔒</div>
-                  <span>Secure Data Management</span>
-                </div>
-                <div className={styles.feature}>
                   <div className={styles.featureIcon}>📋</div>
-                  <span>Comprehensive Records</span>
+                  <span>Organize Records</span>
                 </div>
                 <div className={styles.feature}>
-                  <div className={styles.featureIcon}>👥</div>
-                  <span>Team Collaboration</span>
+                  <div className={styles.featureIcon}>👁️</div>
+                  <span>Live Preview for Every Records</span>
+                </div>
+                <div className={styles.feature}>
+                  <div className={styles.featureIcon}>⬇️</div>
+                  <span>Download Anytime</span>
                 </div>
               </div>
             </div>

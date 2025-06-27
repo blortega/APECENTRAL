@@ -36,11 +36,11 @@ export default function Home() {
         <main className={styles.mainContent}>
           <section className={styles.hero}>
             <h2 className={styles.tagline}>
-              Your Health Records, Organized and Secure
+              Keep Track of Your Health Records
             </h2>
             <p className={styles.description}>
-              Easily access, upload, and manage your annual physical exam
-              records in one secure place. Take control of your health history.
+              A simple way to organize and store your annual physical exam
+              records. Start building your personal health history.
             </p>
           </section>
 
@@ -56,20 +56,20 @@ export default function Home() {
           <section className={styles.features}>
             <div className={styles.featureCard}>
               <div className={styles.featureIcon}>📋</div>
-              <h3>Comprehensive Records</h3>
+              <h3>Organize Records</h3>
               <p>
-                Store all your exam results and medical history in one place
+                Keep your annual physical exam results in one convenient location
               </p>
             </div>
             <div className={styles.featureCard}>
-              <div className={styles.featureIcon}>🔐</div>
-              <h3>HIPAA Compliant</h3>
-              <p>Your health data is protected with bank-level security</p>
+              <div className={styles.featureIcon}>👁️</div>
+              <h3>A Live Preview of Every Records</h3>
+              <p>View and review all your health records at a glance</p>
             </div>
             <div className={styles.featureCard}>
-              <div className={styles.featureIcon}>📱</div>
-              <h3>Access Anywhere</h3>
-              <p>View your records anytime on any device</p>
+              <div className={styles.featureIcon}>⬇️</div>
+              <h3>Download Anytime</h3>
+              <p>Get copies of your records whenever you need them</p>
             </div>
           </section>
         </main>
