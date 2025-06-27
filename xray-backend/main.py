@@ -907,7 +907,7 @@ async def extract_medical_exam(file: UploadFile = File(...)) -> Dict:
         text = "".join(page.get_text() for page in pdf)
         pdf.close()
 
-        result = parse_lipid_profile(text, file.filename)
+        result = parse_medical_exam(text, file.filename)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to extract lipid data: {str(e)}")
