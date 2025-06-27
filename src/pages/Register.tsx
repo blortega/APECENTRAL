@@ -631,16 +631,16 @@ const Register: React.FC = () => {
               </p>
               <div className={styles.features}>
                 <div className={styles.feature}>
-                  <div className={styles.featureIcon}>🔒</div>
-                  <span>Secure Data Management</span>
-                </div>
-                <div className={styles.feature}>
                   <div className={styles.featureIcon}>📋</div>
-                  <span>Comprehensive Records</span>
+                  <span>Organize Records</span>
                 </div>
                 <div className={styles.feature}>
-                  <div className={styles.featureIcon}>👥</div>
-                  <span>Team Collaboration</span>
+                  <div className={styles.featureIcon}>👁️</div>
+                  <span>Live Preview for Every Records</span>
+                </div>
+                <div className={styles.feature}>
+                  <div className={styles.featureIcon}>⬇️</div>
+                  <span>Download Anytime</span>
                 </div>
               </div>
             </div>
