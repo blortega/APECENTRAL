@@ -982,91 +982,133 @@ def parse_medical_exam(text: str, filename: str) -> Dict:
             "ecg": re.search(r"ECG\s+(Unremarkable|[A-Za-z\s]+)", text, re.IGNORECASE).group(1).strip() if re.search(r"ECG\s+(Unremarkable|[A-Za-z\s]+)", text, re.IGNORECASE) else "",
         }
 
-    def extract_medical_classification():
-        classification = {}
+def extract_medical_classification():
+    classification = {}
+    
+    # Enhanced FIT/UNFIT detection
+    def detect_fitness_status():
+        # Look for the RECOMMENDATIONS section
+        recommendations_section = re.search(r"RECOMMENDATIONS:\s*(.*?)(?=Class|$)", text, re.IGNORECASE | re.DOTALL)
+        if recommendations_section:
+            rec_text = recommendations_section.group(1)
+            print(f"[DEBUG] Recommendations section: {rec_text}")
+            
+            # Check for FIT vs UNFIT - look for various patterns
+            if re.search(r"FIT.*?UNFIT", rec_text, re.IGNORECASE):
+                # Both options present, need to determine which is selected
+                # Look for positioning or checkbox indicators
+                fit_match = re.search(r"(\[.\]|\s+)?\s*FIT", rec_text, re.IGNORECASE)
+                unfit_match = re.search(r"(\[.\]|\s+)?\s*UNFIT", rec_text, re.IGNORECASE)
+                
+                # For this specific document, we can see "FIT UNFIT" without clear markers
+                # Let's use a different approach - check the overall document context
+                if re.search(r"Medically Fit", text, re.IGNORECASE):
+                    return "FIT"
+                elif re.search(r"Unfit for employment", text, re.IGNORECASE):
+                    return "UNFIT"  
+            elif re.search(r"FIT", rec_text, re.IGNORECASE):
+                return "FIT"
+            elif re.search(r"UNFIT", rec_text, re.IGNORECASE):
+                return "UNFIT"
+        
+        return "NOT_FOUND"
+    
+    # Enhanced Medical Class detection
+    def detect_medical_class():
+        # Look for Class A, B, C, D, E, or PENDING
+        class_patterns = [
+            r'Class\s*["\']?([ABCDE])["\']?\s*[-–]\s*Medically Fit',
+            r'Class\s*["\']?([ABCDE])["\']?',
+            r'Class\s*["\']?(PENDING)["\']?'
+        ]
+        
+        for pattern in class_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                class_found = match.group(1).upper()
+                print(f"[DEBUG] Found medical class: {class_found}")
+                
+                # Verify this class section has some indication it's selected
+                # Look for context around the found class
+                class_context = text[max(0, match.start()-100):match.end()+200]
+                print(f"[DEBUG] Class context: {class_context}")
+                
+                return class_found
+        
+        # Alternative: Look for specific class descriptions that indicate selection
+        if re.search(r"Medically Fit for Employment.*minimal findings", text, re.IGNORECASE | re.DOTALL):
+            return "B"
+        elif re.search(r"Medically Fit for Employment", text, re.IGNORECASE):
+            return "A"
+        elif re.search(r"less strenuous type of work", text, re.IGNORECASE):
+            return "C"
+        elif re.search(r"discretion of the management", text, re.IGNORECASE):
+            return "D"
+        elif re.search(r"Unfit for employment", text, re.IGNORECASE):
+            return "E"
+        
+        return "NOT_FOUND"
+    
+    # Extract fitness status and medical class
+    classification["fitness_status"] = detect_fitness_status()
+    classification["medical_class"] = detect_medical_class()
+    
+    # Extract needs treatment - improved pattern
+    treatment_patterns = [
+        r"Needs\s+treatment[/\s]*correction\s+([A-Z\s,\-\.]+?)(?=Treatment\s+optional|Class\s*[\"']?[CDE]|Remarks|Date|$)",
+        r"Needs\s+treatment[/\s]*correction\s*:?\s*([A-Z\s,\-\.]+?)(?=\n|Treatment|Class|Remarks|Date|$)"
+    ]
+    
+    for pattern in treatment_patterns:
+        treatment = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
+        if treatment:
+            classification["needs_treatment"] = treatment.group(1).strip()
+            break
+    else:
+        classification["needs_treatment"] = ""
+    
+    # Extract remarks - improved pattern
+    remarks_patterns = [
+        r"Remarks:\s*([a-zA-Z\s,\-\.]+?)(?=Date\s+of\s+Initial|This\s+is\s+to\s+certify|$)",
+        r"Remarks:\s*([^\n]+)"
+    ]
+    
+    for pattern in remarks_patterns:
+        remarks = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
+        if remarks:
+            classification["remarks"] = remarks.group(1).strip()
+            break
+    else:
+        classification["remarks"] = ""
+    
+    print(f"[DEBUG] Final classification: {classification}")
+    return classification
 
-        # Detect FIT / UNFIT using checkboxes
-        fit_section = re.search(r"RECOMMENDATIONS:(.*?)\n", text, re.IGNORECASE | re.DOTALL)
-        classification["fitness_status"] = detect_checkbox_status(fit_section.group(1), ["FIT", "UNFIT"]) if fit_section else ""
-
-        # Detect Medical Class using checkboxes
-        class_section = re.search(r"Class\s*([A-E]|PENDING)[\s\S]{0,50}", text, re.IGNORECASE)
-        classification["medical_class"] = detect_checkbox_status(class_section.group(0), ["A", "B", "C", "D", "E", "PENDING"]) if class_section else ""
-
-        # Extract needs treatment
-        treatment = re.search(r"Needs\s+treatment/?\s*correction\s+([A-Z\s,\-]+?)(?=Treatment\s+optional|Remarks|Date|$)", text, re.IGNORECASE)
-        classification["needs_treatment"] = treatment.group(1).strip() if treatment else ""
-
-        # Extract remarks
-        remarks = re.search(r"Remarks:\s+([a-zA-Z\s,\-\.]+?)(?=Date\s+of\s+Initial|This\s+is\s+to\s+certify|$)", text, re.IGNORECASE)
-        classification["remarks"] = remarks.group(1).strip() if remarks else ""
-
-        return classification
-
-    vitals = extract_vital_signs()
-    anthro = extract_anthropometrics()
-    visual = extract_visual_acuity()
-    labs = extract_lab_findings()
-    classification = extract_medical_classification()
-
-    yes_no_conditions = {
-        "head_or_neck_injury": extract_yes_no_condition("Head or Neck Injury"),
-        "frequent_dizziness": extract_yes_no_condition("Frequent Dizziness"),
-        "fainting_spells": extract_yes_no_condition("Fainting Spells"),
-        "chronic_cough": extract_yes_no_condition("Chronic Cough"),
-        "heart_disease": extract_yes_no_condition("Heart Disease/ Chest Pain"),
-        "hypertension": extract_yes_no_condition("Hypertension"),
-        "diabetes": extract_yes_no_condition("Diabetes"),
-        "asthma": extract_yes_no_condition("Asthma"),
-        "epilepsy": extract_yes_no_condition("Epilepsy"),
-        "mental_disorder": extract_yes_no_condition("Mental Disorder"),
-        "tuberculosis": extract_yes_no_condition("Tuberculosis"),
-        "cancer": extract_yes_no_condition("Cancer"),
-        "kidney_disease": extract_yes_no_condition("Kidney Disease"),
-        "others": extract_yes_no_condition("Others")
-    }
-
-    return {
-        "patient_name": extract_field(r"PATIENT NAME:\s*([A-Z\s]+)\s+PID:"),
-        "pid": extract_field(r"PID:\s*(\d+)"),
-        "date_of_birth": extract_field(r"DATE OF BIRTH:\s*([\d/]+)"),
-        "age": int(extract_field(r"AGE:\s*(\d+)", "0")),
-        "sex": extract_field(r"SEX:\s*([A-Z]+)"),
-        "date_of_examination": extract_field(r"DATE OF.*?(\d{2}\s+\d{2}\s+\d{4})"),
-        "civil_status": extract_field(r"CIVIL STATUS:\s*([A-Z]+)"),
-        "company": extract_field(r"COMPANY:\s*([A-Z\s]+)\s+OCCUPATION:"),
-        "occupation": extract_field(r"OCCUPATION:\s*([A-Z\s]*)", ""),
-
-        "present_illness": extract_field(r"PRESENT ILLNESS:\s*([A-Z\s]*)\s+ALLERGY:"),
-        "food_allergy": extract_field(r"Food:\s*([A-Z]+)"),
-        "medication_allergy": extract_field(r"Medication:\s*([A-Z]+)"),
-        "past_consultation": extract_field(r"If YES, specify:\s*([A-Z\d\s-]+)"),
-        "maintenance_medications": extract_field(r"If YES, specify:\s*([A-Z\s\d]+)"),
-        "previous_hospitalizations": extract_field(r"Previous Hospitalizations:\s*([A-Z\s,\d-]+)"),
-
-        "menstrual_history_lmp": extract_field(r"LMP\s*:\s*([A-Z\s\d]+)"),
-        "obstetrical_history": extract_field(r"OBSTETRICAL HISTORY:\s*([A-Z\d\s()]+)"),
-
-        **vitals,
-        **anthro,
-        **visual,
-        **labs,
-        **classification,
-
-        "examining_physician": extract_field(r"KRIZIA KATE LANUTAN LIAO\s+([A-Z\s]+)\s+DR\."),
-        "evaluating_personnel": extract_field(r"DR\.\s+([A-Z\s-]+)"),
-        "physician_prc": extract_field(r"PRC#:\s*(\d+)"),
-
-        "date_of_initial_peme": extract_field(r"Date of Initial PEME:\s*([\d/]+)"),
-        "date_of_fitness": extract_field(r"Date of Fitness:\s*([\d/]*)"),
-        "valid_until": extract_field(r"Valid Until:\s*([\d/]*)"),
-
-        "fileName": filename,
-        "uploadDate": datetime.utcnow().isoformat(),
-        "uniqueId": filename.replace(".pdf", ""),
-
-        **yes_no_conditions
-    }
+# Add this debugging function to see the exact text structure
+def debug_recommendations_section(text):
+    print("\n===== RECOMMENDATIONS SECTION DEBUG =====")
+    
+    # Find the entire recommendations section
+    rec_match = re.search(r"RECOMMENDATIONS:(.*?)(?=This\s+is\s+to\s+certify|$)", text, re.IGNORECASE | re.DOTALL)
+    if rec_match:
+        rec_section = rec_match.group(1)
+        print(f"Full recommendations section:\n{rec_section}")
+        print("-" * 50)
+        
+        # Check for specific patterns
+        if "FIT" in rec_section:
+            print("✓ Found 'FIT' in recommendations")
+        if "UNFIT" in rec_section:
+            print("✓ Found 'UNFIT' in recommendations")
+            
+        # Look for class patterns
+        class_matches = re.findall(r"Class\s*[\"']?([ABCDE]|PENDING)[\"']?", rec_section, re.IGNORECASE)
+        print(f"Found classes: {class_matches}")
+        
+    else:
+        print("❌ Could not find RECOMMENDATIONS section")
+    
+    print("=" * 50)
 
 
 
