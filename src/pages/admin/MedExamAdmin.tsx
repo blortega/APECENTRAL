@@ -814,11 +814,11 @@ const MedExamAdmin: React.FC = () => {
                     </span>
                   </div>
                   {selectedRecord?.pdfUrl && (() => {
-  const baseUrl = import.meta.env.VITE_BACKEND_URL;
-  const isFullUrl = selectedRecord.pdfUrl.startsWith("http");
-  const pdfPath = isFullUrl
-    ? selectedRecord.pdfUrl
-    : `${baseUrl}/view-pdf/${selectedRecord.pdfUrl}`;
+                  const baseUrl = import.meta.env.VITE_BACKEND_URL;
+                  const isFullUrl = selectedRecord.pdfUrl.startsWith("http");
+                  const pdfPath = isFullUrl
+                    ? selectedRecord.pdfUrl
+                    : `${baseUrl}/view-pdf/${selectedRecord.pdfUrl}`;
 
   return (
     <div className={styles.pdfSection}>
