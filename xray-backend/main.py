@@ -10,6 +10,10 @@ import os
 from pathlib import Path
 import shutil
 import traceback
+import cv2
+import numpy as np
+from PIL import Image
+import pytesseract
 
 
 app = FastAPI()
@@ -899,6 +903,49 @@ VLDL L 13.60 mg/dL 20 - 30"""
 # Uncomment to test:
 # test_with_actual_data()
 
+def detect_medical_class_from_checkbox(pdf_bytes: bytes) -> str:
+    try:
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        page = doc.load_page(0)
+        pix = page.get_pixmap(dpi=300)
+        img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+        doc.close()
+
+        img_cv = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
+
+        checkbox_regions = {
+            "A": img_cv[1760:1790, 100:130],
+            "B": img_cv[1800:1830, 100:130],
+            "C": img_cv[1840:1870, 100:130],
+            "D": img_cv[1880:1910, 100:130],
+            "E": img_cv[1920:1950, 100:130],
+        }
+
+        scores = {}
+        ocr_results = {}
+
+        for label, crop in checkbox_regions.items():
+            gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
+            avg_pixel = np.mean(gray)
+            scores[label] = avg_pixel
+
+            # OCR detection
+            text = pytesseract.image_to_string(gray, config='--psm 8').strip()
+            ocr_results[label] = text
+
+        # Prefer OCR if any checkbox has a clear "x" or "✓"
+        for label, ocr_text in ocr_results.items():
+            if any(char in ocr_text.lower() for char in ["x", "✓", "v"]):
+                print(f"[OCR CHECKBOX DETECTED] Label: {label} → Text: {ocr_text}")
+                return label
+
+        selected_class = min(scores, key=scores.get)
+        print(f"[CHECKBOX DETECTED] Scores: {scores} → Selected: {selected_class}")
+        return selected_class
+    except Exception as e:
+        print(f"[CHECKBOX DETECTION ERROR] {str(e)}")
+        return "NOT_FOUND"
+
 @app.post("/extract-medical-exam")
 async def extract_medical_exam(file: UploadFile = File(...)) -> Dict:
     try:
@@ -907,16 +954,21 @@ async def extract_medical_exam(file: UploadFile = File(...)) -> Dict:
         text = "".join(page.get_text() for page in pdf)
         pdf.close()
 
-        result = parse_medical_exam(text, file.filename)
-        
-        # Add null check here
+        # ✅ OCR checkbox class detection
+        checkbox_class = detect_medical_class_from_checkbox(content)
+        print(f"[FINAL OCR CLASS] → {checkbox_class}")
+
+        # ✅ Now pass the OCR class to the parser
+        result = parse_medical_exam(text, file.filename, content, checkbox_class)
+
         if result is None:
             raise ValueError("Failed to parse medical exam data - parser returned None")
-            
+
         return result
     except Exception as e:
         print(f"ERROR in extract_medical_exam: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to extract medical exam data: {str(e)}")
+
 
 
 def parse_medical_exam(text: str, filename: str) -> Dict:
