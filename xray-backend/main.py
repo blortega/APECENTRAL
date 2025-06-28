@@ -1046,123 +1046,69 @@ def parse_medical_exam(text: str, filename: str) -> Dict:
                 classification = {}
 
                 # Enhanced FIT/UNFIT detection
-                def detect_fitness_status():
-                    try:
-                        # Look for the RECOMMENDATIONS section
-                        recommendations_section = re.search(r"RECOMMENDATIONS:\s*(.*?)(?=Class|This\s+is\s+to\s+certify|$)", text, re.IGNORECASE | re.DOTALL)
-                        if recommendations_section:
-                            rec_text = recommendations_section.group(1)
-                            print(f"[DEBUG] Recommendations section: {rec_text}")
-                            
-                            # For documents with "FIT UNFIT" without clear markers
-                            # Check the overall document context for fitness determination
-                            if re.search(r"Medically Fit", text, re.IGNORECASE):
-                                return "FIT"
-                            elif re.search(r"Unfit for employment", text, re.IGNORECASE):
-                                return "UNFIT"
-                            elif "FIT" in rec_text.upper():
-                                return "FIT"
-                            elif "UNFIT" in rec_text.upper():
-                                return "UNFIT"
-                        
-                        return "NOT_FOUND"
-                    except Exception as e:
-                        print(f"[FITNESS STATUS ERROR] {str(e)}")
-                        return "NOT_FOUND"
-
-                # Enhanced Medical Class detection
                 def detect_medical_class():
                     try:
-                        # First check if there are treatment needs
-                        needs_treatment = re.search(r"Needs\s+treatment[/\s]*correction\s+([A-Z\s,\-\.]+?)(?=Treatment\s+optional|Class|Remarks|Date|$)", text, re.IGNORECASE)
-                        has_treatment_needs = needs_treatment and needs_treatment.group(1).strip() and needs_treatment.group(1).strip() != ""
-                        treatment_details = needs_treatment.group(1).strip() if has_treatment_needs else ""
-                        
-                        # Check for specific fitness indicators
-                        is_fit = re.search(r"FIT", text, re.IGNORECASE) and not re.search(r"UNFIT", text, re.IGNORECASE)
-                        is_unfit = re.search(r"UNFIT", text, re.IGNORECASE)
-                        
-                        print(f"[DEBUG] Treatment needs: {treatment_details}")
-                        print(f"[DEBUG] Has treatment needs: {has_treatment_needs}")
-                        print(f"[DEBUG] Is fit: {is_fit}, Is unfit: {is_unfit}")
-                        
-                        # OVERRIDE LOGIC: If there are treatment needs and the person is fit, it's Class B
-                        if has_treatment_needs and is_fit:
-                            print(f"[DEBUG] OVERRIDE: Assigning Class B due to treatment needs: {treatment_details}")
-                            return "B"
-                        
-                        # Now look for explicit class patterns (but they can be overridden by above logic)
+                        # First, look for checkbox-based class selection
                         class_patterns = [
+                            (r'([✓xX])\s*Class\s*["\']?A["\']?\s*[-–]\s*Medically Fit for Employment', 'A'),
+                            (r'([✓xX])\s*Class\s*["\']?B["\']?\s*[-–]\s*Medically Fit for Employment with Minimal Findings', 'B'),
+                            (r'([✓xX])\s*Class\s*["\']?C["\']?\s*[-–]\s*Medically Fit for less strenuous type of work', 'C'),
+                            (r'([✓xX])\s*Class\s*["\']?D["\']?\s*[-–]\s*Employment at the discretion of the management', 'D'),
+                            (r'([✓xX])\s*Class\s*["\']?E["\']?\s*[-–]\s*Unfit for employment', 'E'),
+                            (r'([✓xX])\s*Class\s*["\']?PENDING["\']?\s*[-–]\s*For further Evaluation', 'PENDING'),
+                        ]
+                        # Check for checkbox selections
+                        for pattern, class_letter in class_patterns:
+                            match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
+                            if match:
+                                checkbox = match.group(1).strip()
+                                if checkbox in ["✓", "x", "X"]:
+                                    print(f"[DEBUG] Found checkbox-selected class: {class_letter}")
+                                    return class_letter
+                        # Fallback: Look for explicit class text without checkboxes
+                        explicit_class_patterns = [
                             r'Class\s*["\']?([ABCDE])["\']?\s*[-–]\s*Medically Fit',
                             r'Class\s*["\']?([ABCDE])["\']?',
                             r'Class\s*["\']?(PENDING)["\']?'
                         ]
-                        
-                        found_class = None
-                        for pattern in class_patterns:
+                        for pattern in explicit_class_patterns:
                             match = re.search(pattern, text, re.IGNORECASE)
                             if match:
                                 found_class = match.group(1).upper()
-                                print(f"[DEBUG] Found medical class in text: {found_class}")
-                                break
-                        
-                        # If we found a class but have treatment needs, override to Class B
-                        if found_class and has_treatment_needs and found_class == "A":
-                            print(f"[DEBUG] OVERRIDE: Changing Class A to Class B due to treatment needs")
-                            return "B"
-                        elif found_class:
-                            return found_class
-                        
+                                print(f"[DEBUG] Found explicit class in text: {found_class}")
+                                # Additional validation based on treatment needs
+                                needs_treatment = re.search(r"Needs\s+treatment[/\s]*correction\s+([A-Z\s,\-\.]+?)(?=Treatment\s+optional|Class|Remarks|Date|$)", text, re.IGNORECASE)
+                                has_treatment_needs = needs_treatment and needs_treatment.group(1).strip() and needs_treatment.group(1).strip() != ""
+                                if has_treatment_needs and found_class == "A":
+                                    print(f"[DEBUG] OVERRIDE: Changing Class A to Class B due to treatment needs")
+                                    return "B"
+                                return found_class
+                        # Enhanced logic for determining class based on content analysis
+                        needs_treatment = re.search(r"Needs\s+treatment[/\s]*correction\s+([A-Z\s,\-\.]+?)(?=Treatment\s+optional|Class|Remarks|Date|$)", text, re.IGNORECASE)
+                        has_treatment_needs = needs_treatment and needs_treatment.group(1).strip() and needs_treatment.group(1).strip() != ""
+                        treatment_details = needs_treatment.group(1).strip() if has_treatment_needs else ""
+                        is_fit = re.search(r"FIT", text, re.IGNORECASE) and not re.search(r"UNFIT", text, re.IGNORECASE)
+                        is_unfit = re.search(r"UNFIT", text, re.IGNORECASE)
+                        print(f"[DEBUG] Treatment needs: {treatment_details}")
+                        print(f"[DEBUG] Has treatment needs: {has_treatment_needs}")
+                        print(f"[DEBUG] Is fit: {is_fit}, Is unfit: {is_unfit}")
                         # CLASS E - Unfit for employment
                         if is_unfit or re.search(r"Unfit for employment", text, re.IGNORECASE):
                             return "E"
-                        
                         # CLASS D - Employment at the discretion of management
                         if re.search(r"discretion of the management", text, re.IGNORECASE):
                             return "D"
-                        
-                        # Check for conditions that would indicate Class D
-                        serious_conditions = [
-                            r"chronic.*disease", r"significant.*impairment", r"major.*condition",
-                            r"requires.*medical.*supervision", r"periodic.*monitoring.*required"
-                        ]
-                        for condition in serious_conditions:
-                            if re.search(condition, text, re.IGNORECASE):
-                                return "D"
-                        
                         # CLASS C - Fit for less strenuous work
                         if re.search(r"less strenuous type of work", text, re.IGNORECASE):
                             return "C"
-                        
-                        # Check for conditions that would indicate Class C
-                        limiting_conditions = [
-                            r"back.*injury", r"joint.*problems", r"limited.*mobility",
-                            r"respiratory.*condition", r"cardiovascular.*limitation",
-                            r"not.*suitable.*heavy.*work", r"avoid.*strenuous.*activity"
-                        ]
-                        for condition in limiting_conditions:
-                            if re.search(condition, text, re.IGNORECASE):
-                                return "C"
-                        
                         # CLASS PENDING - For further evaluation
                         if re.search(r"PENDING", text, re.IGNORECASE) or re.search(r"further.*evaluation", text, re.IGNORECASE):
                             return "PENDING"
-                        
-                        # Check for conditions that would require pending status
-                        pending_indicators = [
-                            r"additional.*tests.*required", r"follow.*up.*needed",
-                            r"specialist.*consultation", r"further.*investigation"
-                        ]
-                        for indicator in pending_indicators:
-                            if re.search(indicator, text, re.IGNORECASE):
-                                return "PENDING"
-                        
-                        # CLASS B - Medically fit with minimal findings
+                        # CLASS B - Medically fit with minimal findings/treatment needs
                         if is_fit or re.search(r"Medically Fit", text, re.IGNORECASE):
                             if has_treatment_needs:
                                 print(f"[DEBUG] Assigning Class B due to treatment needs: {treatment_details}")
                                 return "B"
-                            
                             # Check for minor conditions that indicate Class B
                             minor_conditions = [
                                 r"minimal.*findings", r"minor.*condition", r"slight.*abnormality",
@@ -1171,32 +1117,27 @@ def parse_medical_exam(text: str, filename: str) -> Dict:
                             for condition in minor_conditions:
                                 if re.search(condition, text, re.IGNORECASE):
                                     return "B"
-                            
                             # Check specific treatable conditions
                             class_b_conditions = [
-                                r"dyslipidemia", r"hypertension.*controlled", r"diabetes.*controlled",
+                                r"dyslipidemia", r"hypertension", r"HPN", r"diabetes.*controlled",
                                 r"asthma.*mild", r"allergies", r"refractive.*error", r"dental.*issues"
                             ]
                             for condition in class_b_conditions:
                                 if re.search(condition, text, re.IGNORECASE):
                                     return "B"
-                        
                         # CLASS A - Completely medically fit (no conditions)
                         if (is_fit or re.search(r"Medically Fit", text, re.IGNORECASE)) and not has_treatment_needs:
-                            # Double-check there are no concerning findings
                             concerning_terms = [
                                 r"abnormal", r"positive.*finding", r"requires.*attention",
                                 r"follow.*up", r"monitor", r"treatment"
                             ]
                             has_concerns = any(re.search(term, text, re.IGNORECASE) for term in concerning_terms)
-                            
                             if not has_concerns:
                                 print("[DEBUG] Assigning Class A - completely fit with no conditions")
                                 return "A"
                             else:
                                 print("[DEBUG] Assigning Class B due to concerning findings despite no explicit treatment needs")
                                 return "B"
-                        
                         return "NOT_FOUND"
                     except Exception as e:
                         print(f"[MEDICAL CLASS ERROR] {str(e)}")
