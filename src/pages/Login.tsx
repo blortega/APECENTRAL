@@ -28,7 +28,7 @@ const Login: React.FC = () => {
       ...prev,
       [name]: value,
     }));
-    // Clear error when user starts typing
+    // Clear error when user starts typings
     if (error) setError("");
   };
 
